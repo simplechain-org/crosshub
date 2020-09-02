@@ -36,6 +36,14 @@ type Msg struct {
 	ReceivedAt time.Time
 }
 
+func NewMsg(msgcode uint64, data interface{}) (*Msg,error) {
+	size, r, err := rlp.EncodeToReader(data)
+	if err != nil {
+		return nil,err
+	}
+	return  &Msg{Code: msgcode, Size: uint32(size), Payload: r} , nil
+}
+
 // Decode parses the RLP content of a message into
 // the given value, which must be a pointer.
 //
@@ -59,50 +67,23 @@ func (msg Msg) Discard() error {
 	return err
 }
 
-type MsgReader interface {
-	ReadMsg() (Msg, error)
-}
-
-type MsgWriter interface {
-	// WriteMsg sends a message. It will block until the message's
-	// Payload has been consumed by the other end.
-	//
-	// Note that messages can be sent only once because their
-	// payload reader is drained.
-	WriteMsg(Msg) error
-}
-
-// MsgReadWriter provides reading and writing of encoded messages.
-// Implementations should ensure that ReadMsg and WriteMsg can be
-// called simultaneously from multiple goroutines.
-type MsgReadWriter interface {
-	MsgReader
-	MsgWriter
-}
-
-// Send writes an RLP-encoded message with the given code.
-// data should encode as an RLP list.
-func Send(w MsgWriter, msgcode uint64, data interface{}) error {
-	size, r, err := rlp.EncodeToReader(data)
-	if err != nil {
-		return err
-	}
-	return w.WriteMsg(Msg{Code: msgcode, Size: uint32(size), Payload: r})
-}
-
-type peerError struct {
-	code    int
-	message string
-}
-
-func newPeerError(code int, format string, v ...interface{}) *peerError {
-	desc, ok := errorToString[code]
-	if !ok {
-		panic("invalid error code")
-	}
-	err := &peerError{code, desc}
-	if format != "" {
-		err.message += ": " + fmt.Sprintf(format, v...)
-	}
-	return err
-}
+//type MsgReader interface {
+//	ReadMsg() (Msg, error)
+//}
+//
+//type MsgWriter interface {
+//	// WriteMsg sends a message. It will block until the message's
+//	// Payload has been consumed by the other end.
+//	//
+//	// Note that messages can be sent only once because their
+//	// payload reader is drained.
+//	WriteMsg(Msg) error
+//}
+//
+//// MsgReadWriter provides reading and writing of encoded messages.
+//// Implementations should ensure that ReadMsg and WriteMsg can be
+//// called simultaneously from multiple goroutines.
+//type MsgReadWriter interface {
+//	MsgReader
+//	MsgWriter
+//}

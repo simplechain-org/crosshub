@@ -58,7 +58,6 @@ func (rw *p2pRW) ReadMsg() (msg Msg, err error) {
 		return msg, err
 	}
 	fsize := readInt24(headbuf)
-	log.Info("ReadMsg","fsize",fsize)
 	framebuf := make([]byte, fsize)
 	if _, err := io.ReadFull(rw.conn, framebuf); err != nil {
 		log.Info("ReadMsg","err",err)
@@ -68,14 +67,12 @@ func (rw *p2pRW) ReadMsg() (msg Msg, err error) {
 	// decode message code
 	content := bytes.NewReader(framebuf)
 	//msg.Code长度固定
-	log.Info("ReadMsg","len",uint32(content.Len()))
 	if err := rlp.Decode(content, &msg.Code); err != nil {
 		log.Info("Decode","err",err)
 		return msg, err
 	}
 	//content读出去后长度变化
 	msg.Size = uint32(content.Len())
-	log.Info("ReadMsg","msg.size",msg.Size)
 	msg.Payload = content
 	return msg, nil
 }

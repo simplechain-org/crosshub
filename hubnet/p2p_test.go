@@ -2,9 +2,7 @@ package hubnet
 
 import (
 	"context"
-	ecdsa2 "crypto/ecdsa"
 	"crypto/rand"
-	"crypto/x509"
 	"fmt"
 	"testing"
 	"time"
@@ -13,8 +11,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	ecdsa1 "github.com/meshplus/bitxhub-kit/crypto/asym/ecdsa"
-	"github.com/simplechain-org/go-simplechain/rlp"
 )
 
 const protocolID protocol.ID = "/simplechain/test/1.0"
@@ -50,12 +46,11 @@ func TestP2p_ConnectWithNullIDStore(t *testing.T) {
 func TestP2P_Send(t *testing.T) {
 	p1, addr1 := generateNetwork(t, 6005)
 	p2, addr2 := generateNetwork(t, 6006)
-
-	var msg Msg
-	if size, r, err := rlp.EncodeToReader([]byte("Hello!"));err != nil {
+	var err error
+	var msg *Msg
+	msg,err = NewMsg(1,[]byte("Good Afternoon!"))
+	if err != nil {
 		t.Error(err)
-	} else {
-		msg = Msg{Code: 1, Size: uint32(size), Payload: r}
 	}
 
 	ch := make(chan struct{})
@@ -67,7 +62,6 @@ func TestP2P_Send(t *testing.T) {
 		close(ch)
 	})
 
-	var err error
 	err = p1.Start()
 	if err != nil {
 		t.Error(err)
@@ -86,7 +80,7 @@ func TestP2P_Send(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = p1.AsyncSend(addr2, &msg)
+	err = p1.AsyncSend(addr2, msg)
 	if err != nil {
 		t.Error(err)
 	}
@@ -106,8 +100,8 @@ func TestP2P_Send(t *testing.T) {
 func TestP2p_MultiSend(t *testing.T) {
 	p1, addr1 := generateNetwork(t, 6007)
 	p2, addr2 := generateNetwork(t, 6008)
-
-	err := p1.Start()
+	var err error
+	err = p1.Start()
 	if err != nil {
 		t.Error(err)
 	}
@@ -137,33 +131,32 @@ func TestP2p_MultiSend(t *testing.T) {
 		t.Log(addr1.ID ,id)
 	}
 
-	raw, err := pubKey.Raw()
-	if err != nil {
-		t.Error(err)
-	}
-
-	key, err := x509.ParsePKIXPublicKey(raw)
-	if err != nil {
-		t.Error(err)
-	}
-
-	publicKey, err := ecdsa1.NewPublicKey(*key.(*ecdsa2.PublicKey))
-	if err != nil {
-		t.Error(err)
-	}
-	add , err := publicKey.Address()
-	if err != nil {
-		t.Error(err)
-	} else {
-		t.Log(add)
-	}
+	//raw, err := pubKey.Raw()
+	//if err != nil {
+	//	t.Error(err)
+	//}
+	//
+	//key, err := x509.ParsePKIXPublicKey(raw)
+	//if err != nil {
+	//	t.Error(err)
+	//}
+	//
+	//publicKey, err := ecdsa1.NewPublicKey(*key.(*ecdsa2.PublicKey))
+	//if err != nil {
+	//	t.Error(err)
+	//}
+	//add , err := publicKey.Address()
+	//if err != nil {
+	//	t.Error(err)
+	//} else {
+	//	t.Log(add)
+	//}
 
 	N := 50
-	var msg Msg
-	if size, r, err := rlp.EncodeToReader([]byte("Good Afternoon!"));err != nil {
+	var msg *Msg
+	msg,err = NewMsg(1,[]byte("Good Afternoon!"))
+	if err != nil {
 		t.Error(err)
-	} else {
-		msg = Msg{Code: 1, Size: uint32(size), Payload: r}
 	}
 	count := 0
 	ch := make(chan struct{})
@@ -181,14 +174,13 @@ func TestP2p_MultiSend(t *testing.T) {
 
 	go func() {
 		for i := 0; i < N; i++ {
-			var temp Msg
-			if size, r, err := rlp.EncodeToReader([]byte("Good Afternoon!"));err != nil {
+			var temp *Msg
+			temp,err = NewMsg(1,[]byte("Good Afternoon!"))
+			if err != nil {
 				t.Error(err)
-			} else {
-				temp = Msg{Code: 1, Size: uint32(size), Payload: r}
 			}
 			time.Sleep(200 * time.Microsecond)
-			err = p1.AsyncSend(addr2, &temp)
+			err = p1.AsyncSend(addr2, temp)
 			if err != nil {
 				t.Error(err)
 			}

@@ -3,8 +3,7 @@ package swarm
 import (
 	"context"
 	"fmt"
-	"github.com/simplechain-org/go-simplechain/rlp"
-
+	"github.com/simplechain-org/crosshub/cert"
 	//"github.com/meshplus/bitxhub-kit/network"
 	"github.com/simplechain-org/crosshub/hubnet"
 	"github.com/simplechain-org/go-simplechain/log"
@@ -160,50 +159,35 @@ func (swarm *Swarm) verifyCert(id uint64) error {
 	if err := swarm.checkID(id); err != nil {
 		return fmt.Errorf("check id: %w", err)
 	}
+	var msg *hubnet.Msg
+	var err error
+	msg,err = hubnet.NewMsg(1,[]byte( fmt.Sprintf("Good Afternoon!,I am %s",swarm.repo.Key.Address)))
 
-	//msg := &pb.Message{
-	//	Type: pb.Message_FETCH_CERT,
-	//}
-	var msg hubnet.Msg
-	if size, r, err := rlp.EncodeToReader([]byte( fmt.Sprintf("Good Afternoon!,I am %s",swarm.repo.Key.Address)));err != nil {
-		log.Error("EncodeToReader","err",err)
-	} else {
-		msg = hubnet.Msg{Code: 1, Size: uint32(size), Payload: r}
-	}
-
-	ret, err := swarm.Send(id, &msg)
+	ret, err := swarm.Send(id, msg)
 	if err != nil {
 		return fmt.Errorf("sync send: %w", err)
 	}
 
-	var word []byte
-	ret.Decode(&word)
-	log.Info("handler","msg",string(word))
+	var certs CertsMessage
+	ret.Decode(&certs)
+	nodeCert, err := cert.ParseCert(certs.NodeCert)
+	if err != nil {
+		return fmt.Errorf("parse node cert: %w", err)
+	}
 
-	//certs := &model.CertsMessage{}
-	//if err := certs.Unmarshal(ret.Data); err != nil {
-	//	return fmt.Errorf("unmarshal certs: %w", err)
-	//}
-	//
-	//nodeCert, err := cert.ParseCert(certs.NodeCert)
-	//if err != nil {
-	//	return fmt.Errorf("parse node cert: %w", err)
-	//}
-	//
-	//agencyCert, err := cert.ParseCert(certs.AgencyCert)
-	//if err != nil {
-	//	return fmt.Errorf("parse agency cert: %w", err)
-	//}
-	//
-	//if err := verifyCerts(nodeCert, agencyCert, swarm.repo.Certs.CACert); err != nil {
-	//	return fmt.Errorf("verify certs: %w", err)
-	//}
-	//
-	//err = swarm.p2p.Disconnect(swarm.peers[id])
-	//if err != nil {
-	//	return fmt.Errorf("disconnect peer: %w", err)
-	//}
+	agencyCert, err := cert.ParseCert(certs.AgencyCert)
+	if err != nil {
+		return fmt.Errorf("parse agency cert: %w", err)
+	}
 
+	if err := verifyCerts(nodeCert, agencyCert, swarm.repo.Certs.CACert); err != nil {
+		log.Info("verifyCerts","err",err)
+		return fmt.Errorf("verify certs: %w", err)
+	}
+	err = swarm.p2p.Disconnect(swarm.peers[id])
+	if err != nil {
+		return fmt.Errorf("disconnect peer: %w", err)
+	}
 	return nil
 }
 

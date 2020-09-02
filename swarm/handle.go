@@ -4,10 +4,9 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/simplechain-org/crosshub/hubnet"
 	"github.com/simplechain-org/crosshub/cert"
+	"github.com/simplechain-org/crosshub/hubnet"
 	"github.com/simplechain-org/go-simplechain/log"
-	"github.com/simplechain-org/go-simplechain/rlp"
 )
 
 func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
@@ -17,13 +16,14 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 			var word []byte
 			data.Decode(&word)
 			log.Info("handler","msg",string(word))
-			var msg hubnet.Msg
+			swarm.handleFetchCertMessage(s)
+			/*var msg hubnet.Msg
 			if size, r, err := rlp.EncodeToReader([]byte( fmt.Sprintf("Yes!,I am %s",swarm.repo.Key.Address)));err != nil {
 				log.Error("EncodeToReader","err",err)
 			} else {
 				msg = hubnet.Msg{Code: 2, Size: uint32(size), Payload: r}
-			}
-			swarm.SendWithStream(s,&msg)
+			}*/
+			//swarm.SendWithStream(s,&msg)
 		//case pb.Message_GET_BLOCK:
 		//	return swarm.handleGetBlockPack(s, m)
 		//case pb.Message_FETCH_CERT:
@@ -46,29 +46,27 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 	}
 }
 
-//func (swarm *Swarm) handleFetchCertMessage(s network.Stream) error {
-//	certs := &model.CertsMessage{
-//		AgencyCert: swarm.repo.Certs.AgencyCertData,
-//		NodeCert:   swarm.repo.Certs.NodeCertData,
-//	}
-//
-//	data, err := certs.Marshal()
-//	if err != nil {
-//		return fmt.Errorf("marshal certs: %w", err)
-//	}
-//
-//	msg := &pb.Message{
-//		Type: pb.Message_FETCH_CERT,
-//		Data: data,
-//	}
-//
-//	err = swarm.SendWithStream(s, msg)
-//	if err != nil {
-//		return fmt.Errorf("send msg: %w", err)
-//	}
-//
-//	return nil
-//}
+type CertsMessage struct {
+	AgencyCert []byte
+	NodeCert   []byte
+}
+
+func (swarm *Swarm) handleFetchCertMessage(s network.Stream) error {
+	certs := &CertsMessage{
+		AgencyCert: swarm.repo.Certs.AgencyCertData,
+		NodeCert:   swarm.repo.Certs.NodeCertData,
+	}
+
+	var msg *hubnet.Msg
+	var err error
+	msg, err = hubnet.NewMsg(2,certs)
+	err = swarm.SendWithStream(s, msg)
+	if err != nil {
+		return fmt.Errorf("send msg: %w", err)
+	}
+
+	return nil
+}
 
 func verifyCerts(nodeCert *x509.Certificate, agencyCert *x509.Certificate, caCert *x509.Certificate) error {
 	if err := cert.VerifySign(agencyCert, caCert); err != nil {

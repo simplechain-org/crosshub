@@ -16,8 +16,6 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 		//p2p.logger.WithField("error", err).Error("Set stream read deadline")
 		return
 	}
-
-	//reader := ggio.NewDelimitedReader(s, network.MessageSizeMax)
 	rw := newp2pRW(s)
 	for {
 		var msg Msg
@@ -25,7 +23,6 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 		if msg,err = rw.ReadMsg(); err != nil {
 			if err != io.EOF {
 				if err := s.Reset(); err != nil {
-					//p2p.logger.WithField("error", err).Error("Reset stream")
 					log.Error("Reset stream",err)
 				}
 			}
@@ -41,13 +38,9 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 
 // waitMsg wait the incoming messages within time duration.
 func waitMsg(stream network.Stream, timeout time.Duration) *Msg {
-	//reader := ggio.NewDelimitedReader(stream, network.MessageSizeMax)
 	rw := newp2pRW(stream)
-
 	ch := make(chan *Msg)
-
 	go func() {
-		//msg := &Msg{}
 		if msg,err := rw.ReadMsg(); err == nil {
 			ch <- &msg
 		} else {
