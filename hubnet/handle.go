@@ -25,6 +25,7 @@ func (p2p *P2P) handleNewStream(s network.Stream) {
 				if err := s.Reset(); err != nil {
 					log.Error("Reset stream",err)
 				}
+				log.Info("ReadMsg","err",err)
 			}
 			log.Error("readMsg", "err",err)
 			return

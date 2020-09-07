@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/simplechain-org/crosshub/cert"
+	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/hubnet"
 	"github.com/simplechain-org/go-simplechain/log"
+	"math/big"
 )
 
 func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
@@ -17,12 +19,24 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 			data.Decode(&word)
 			log.Info("handler","msg",string(word))
 			swarm.handleFetchCertMessage(s)
+		case 3:
+			var ev core.CrossTransaction
+			data.Decode(&ev)
+			from,err := core.CtxSender(core.MakeCtxSigner(big.NewInt(11)),&ev)
+			if err != nil {
+				log.Info("CtxSender","err",err)
+			}
+			log.Info("handler sign msg","msg",ev,"from",from.String())
+
+
 			/*var msg hubnet.Msg
 			if size, r, err := rlp.EncodeToReader([]byte( fmt.Sprintf("Yes!,I am %s",swarm.repo.Key.Address)));err != nil {
 				log.Error("EncodeToReader","err",err)
 			} else {
 				msg = hubnet.Msg{Code: 2, Size: uint32(size), Payload: r}
 			}*/
+
+
 			//swarm.SendWithStream(s,&msg)
 		//case pb.Message_GET_BLOCK:
 		//	return swarm.handleGetBlockPack(s, m)

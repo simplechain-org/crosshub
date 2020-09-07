@@ -18,6 +18,7 @@ package repo
 
 import (
 	"encoding/json"
+	"github.com/simplechain-org/go-simplechain/log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,11 +82,14 @@ const (
 )
 
 type Config struct {
-	Title    string `json:"title"`
-	RepoRoot string `json:"repo_root"`
-	Port     `json:"port"`
-	Gateway  `json:"gateway"`
-	Cert     `json:"cert"`
+	Title    string `toml:"title" json:"title"`
+	RepoRoot string `toml:"repo_root" json:"repo_root"`
+	Contract string `toml:"contract" json:"contract"` //跨链合约地址
+	RpcIp   string `toml:"rpcip" json:"rpc_ip"`
+	RpcPort string `toml:"rpcport" json:"rpc_port"`
+	Port     `toml:"port" json:"port"`
+	Gateway  `toml:"gateway" json:"gateway"`
+	Cert     `toml:"cert" json:"cert"`
 }
 
 type Port struct {
@@ -94,7 +98,7 @@ type Port struct {
 }
 
 type Gateway struct {
-	AllowedOrigins []string `mapstructure:"allowed_origins"`
+	AllowedOrigins []string `toml:"allowed_origins" mapstructure:"allowed_origins"`
 }
 
 type Cert struct {
@@ -112,7 +116,9 @@ func (c *Config) Bytes() ([]byte, error) {
 
 func DefaultConfig() (*Config, error) {
 	return &Config{
-		Title: "BitXHub configuration file",
+		Title: "CrossHub configuration file",
+		//Contract: "0xf7bea9e8a0c8e99af6e52ff5e41ec9cac6e6c314",
+		//RpcUrl: "http://112.124.0.14:58545",
 		Port: Port{
 			Grpc:    60011,
 			Gateway: 9091,
@@ -133,18 +139,19 @@ func UnmarshalConfig(repoRoot string) (*Config, error) {
 		return nil, err
 	}
 
-	config, err := DefaultConfig()
-	if err != nil {
+	//config, err := DefaultConfig()
+	//if err != nil {
+	//	return nil, err
+	//}
+	var config Config
+
+	if err := viper.Unmarshal(&config); err != nil {
 		return nil, err
 	}
-
-	if err := viper.Unmarshal(config); err != nil {
-		return nil, err
-	}
-
+	log.Info("UnmarshalConfig","config",config)
 	config.RepoRoot = repoRoot
 
-	return config, nil
+	return &config, nil
 }
 
 func ReadConfig(path, configType string, config interface{}) error {

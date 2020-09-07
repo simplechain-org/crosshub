@@ -174,13 +174,8 @@ func TestP2p_MultiSend(t *testing.T) {
 
 	go func() {
 		for i := 0; i < N; i++ {
-			var temp *Msg
-			temp,err = NewMsg(1,[]byte("Good Afternoon!"))
-			if err != nil {
-				t.Error(err)
-			}
 			time.Sleep(200 * time.Microsecond)
-			err = p1.AsyncSend(addr2, temp)
+			err = p1.AsyncSend(addr2, msg)
 			if err != nil {
 				t.Error(err)
 			}

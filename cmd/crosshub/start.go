@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/simplechain-org/crosshub/chainview"
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/simplechain-org/crosshub/swarm"
 	"github.com/simplechain-org/go-simplechain/log"
+	"github.com/simplechain-org/crosshub/core"
 	"github.com/urfave/cli"
 )
 
@@ -31,8 +33,8 @@ func start(ctx *cli.Context) error {
 		return fmt.Errorf("repo load: %w", err)
 	}
 
-
-	if s,err := swarm.New(repo); err != nil {
+	eventCh := make(chan *core.CrossTransaction,4096)
+	if s,err := swarm.New(repo,eventCh); err != nil {
 		log.Error("swarm.New","err",err)
 		return err
 	} else {
@@ -41,6 +43,18 @@ func start(ctx *cli.Context) error {
 			return err
 		}
 	}
+
+	if v,err := chainview.New(repo,eventCh); err != nil {
+		log.Error("chainview.New","err",err)
+		return err
+	} else {
+		if err := v.Start(); err != nil {
+			log.Error("s.Start","err",err)
+			return err
+		}
+	}
+
+
 
 	<- ch
 	return nil

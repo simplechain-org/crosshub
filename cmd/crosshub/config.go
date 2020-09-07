@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/hokaccha/go-prettyjson"
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/urfave/cli"
@@ -26,7 +25,6 @@ func showConfig(ctx *cli.Context) error {
 			return err
 		}
 	}
-
 	cfg, err := repo.UnmarshalConfig(repoRoot)
 	if err != nil {
 		return err

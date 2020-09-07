@@ -3,6 +3,7 @@ package hubnet
 import (
 	"context"
 	"fmt"
+	"github.com/simplechain-org/go-simplechain/log"
 	"sync"
 	"time"
 
@@ -50,6 +51,7 @@ func (mng *streamMgr) get(pid peer.ID) (network.Stream, error) {
 	if err != nil {
 		return nil, fmt.Errorf("new stream: %w", err)
 	}
+	log.Info("NewStream","id",pid,"mng",mng.protocolID)
 
 	mng.streams[pid] = s
 

@@ -37,7 +37,7 @@ var caCMD = cli.Command{
 	Name:  "ca",
 	Usage: "generate ca cert and private key",
 	Action: func(ctx *cli.Context) error {
-		privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		privKey, err := ecdsa.GenerateKey(elliptic.S256(), rand.Reader)
 		if err != nil {
 			return err
 		}
@@ -117,11 +117,11 @@ var csrCMD = cli.Command{
 				Country:            []string{"CN"},
 				Locality:           []string{"HangZhou"},
 				Province:           []string{"ZheJiang"},
-				OrganizationalUnit: []string{"BitXHub"},
+				OrganizationalUnit: []string{"CrossHub"},
 				Organization:       []string{org},
 				StreetAddress:      []string{"street", "address"},
 				PostalCode:         []string{"324000"},
-				CommonName:         "BitXHub",
+				CommonName:         "CrossHub",
 			},
 		}
 		data, err := x509.CreateCertificateRequest(rand.Reader, template, privKey)
@@ -307,7 +307,7 @@ var privCMD = cli.Command{
 		name := ctx.String("name")
 		target := ctx.String("target")
 
-		privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		privKey, err := ecdsa.GenerateKey(elliptic.S256(), rand.Reader)
 		if err != nil {
 			return fmt.Errorf("generate key: %w", err)
 		}

@@ -1,13 +1,10 @@
 package hubnet
 
 import (
-	"bytes"
 	"errors"
 	"github.com/simplechain-org/go-simplechain/log"
-	"io"
-	"io/ioutil"
-
 	"github.com/simplechain-org/go-simplechain/rlp"
+	"io"
 )
 
 const (
@@ -36,15 +33,22 @@ func (rw *p2pRW) WriteMsg(msg *Msg) error {
 	}
 	putInt24(fsize, headbuf) // TODO: check overflow
 	if _, err := rw.conn.Write(headbuf); err != nil {
+		log.Info("headbuf","err",err)
 		return err
 	}
 
 	if _, err := rw.conn.Write(ptype); err != nil {
+		log.Info("ptype","err",err)
 		return err
 	}
 
-	payload, _ := ioutil.ReadAll(msg.Payload)
-	if _, err := rw.conn.Write(payload); err != nil {
+	//payload, err := ioutil.ReadAll(msg.Payload)
+	//if err != nil {
+	//	log.Info("ReadAll","er",err)
+	//	return err
+	//}
+	if _, err := rw.conn.Write(msg.Bytes); err != nil {
+		log.Info("payload","err",err)
 		return err
 	}
 	return nil
@@ -54,26 +58,43 @@ func (rw *p2pRW) ReadMsg() (msg Msg, err error) {
 	// read the header
 	headbuf := make([]byte, 32)
 	if _, err := io.ReadFull(rw.conn, headbuf); err != nil {
-		log.Info("ReadMsg","err",err)
+		log.Info("ReadMsg1","err",err)
 		return msg, err
 	}
 	fsize := readInt24(headbuf)
-	framebuf := make([]byte, fsize)
-	if _, err := io.ReadFull(rw.conn, framebuf); err != nil {
-		log.Info("ReadMsg","err",err)
+	codebuf := make([]byte, 1)
+	if _, err := io.ReadFull(rw.conn, codebuf); err != nil {
+		log.Info("ReadMsg2","err",err)
 		return msg, err
 	}
+	err = rlp.DecodeBytes(codebuf,&msg.Code)
+	if err != nil {
+		log.Info("DecodeBytes","err",err)
+		return msg,err
+	}
+	msg.Size = fsize - 1
+	framebuf := make([]byte, msg.Size)
+	if _, err := io.ReadFull(rw.conn, framebuf); err != nil {
+		log.Info("ReadMsg2","err",err)
+		return msg, err
+	}
+	msg.Bytes = framebuf
+
 
 	// decode message code
-	content := bytes.NewReader(framebuf)
-	//msg.Code长度固定
-	if err := rlp.Decode(content, &msg.Code); err != nil {
-		log.Info("Decode","err",err)
-		return msg, err
-	}
+	//content := bytes.NewReader(framebuf)
+	////msg.Code长度固定
+	//if err := rlp.Decode(content, &msg.Code); err != nil {
+	//	log.Info("Decode","err",err)
+	//	return msg, err
+	//}
 	//content读出去后长度变化
-	msg.Size = uint32(content.Len())
-	msg.Payload = content
+	//msg.Size = uint32(content.Len())
+	//msg.Payload = content
+	//msg.Bytes,err  = ioutil.ReadAll(content)
+	//if err != nil {
+	//	log.Info("ReadAll","err",err)
+	//}
 	return msg, nil
 }
 

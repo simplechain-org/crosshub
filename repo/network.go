@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"github.com/simplechain-org/go-simplechain/log"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
@@ -99,6 +100,7 @@ func loadNetworkConfig(repoRoot string) (*NetworkConfig, error) {
 	}
 	// read private key to get PeerID
 	PeerID, err := GetPidFromPrivFile(filepath.Join(repoRoot, nodePrivFile))
+	log.Info("loadNetworkConfig","PeerID",PeerID)
 	if err != nil {
 		return nil, err
 	}

@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
-	crypto2 "github.com/meshplus/bitxhub-kit/crypto"
-	"github.com/meshplus/bitxhub-kit/crypto/asym/ecdsa"
+	crypto2 "github.com/simplechain-org/go-simplechain/crypto"
+	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
+	//"github.com/meshplus/bitxhub-kit/crypto/asym/ecdsa"
 	"github.com/meshplus/bitxhub-kit/fileutil"
-	"github.com/meshplus/bitxhub-kit/key"
 	"github.com/simplechain-org/crosshub/cert"
+	"github.com/simplechain-org/crosshub/repo/key"
 	"github.com/tidwall/gjson"
 )
 
@@ -75,12 +76,19 @@ func loadPrivKey(repoRoot string) (*Key, error) {
 		return nil, err
 	}
 
+	//priv,err :=  crypto2.ToECDSA(data[:32])
+	//if err != nil {
+	//	log.Info("ToECDSA","err",err)
+	//}
+
 	privKey := &ecdsa.PrivateKey{K: stdPriv}
 
-	address, err := privKey.PublicKey().Address()
-	if err != nil {
-		return nil, err
-	}
+	//address, err := privKey.PublicKey().Address()
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	address := crypto2.PubkeyToAddress(privKey.K.PublicKey)
 
 	libp2pPrivKey, _, err := crypto.ECDSAKeyPairFromKey(stdPriv)
 	if err != nil {
@@ -92,7 +100,7 @@ func loadPrivKey(repoRoot string) (*Key, error) {
 	keyPath := filepath.Join(repoRoot, KeyName)
 
 	if !fileutil.Exist(keyPath) {
-		k, err := key.NewWithPrivateKey(privKey, "bitxhub")
+		k, err := key.NewWithPrivateKey(privKey,"")
 		if err != nil {
 			return nil, err
 		}

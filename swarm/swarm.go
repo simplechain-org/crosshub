@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/simplechain-org/crosshub/cert"
+	"github.com/simplechain-org/crosshub/core"
+
 	//"github.com/meshplus/bitxhub-kit/network"
 	"github.com/simplechain-org/crosshub/hubnet"
 	"github.com/simplechain-org/go-simplechain/log"
@@ -20,7 +22,8 @@ import (
 )
 
 const (
-	protocolID protocol.ID = "/SimpleChain/CrossHub/1.0.0" // magic protocol
+	//protocolID protocol.ID = "/SimpleChain/CrossHub/1.0.0" // magic protocol
+	protocolID protocol.ID = "/SimpleChain/CrossHub/1.0.0"
 )
 
 type Swarm struct {
@@ -28,12 +31,13 @@ type Swarm struct {
 	p2p            hubnet.Network
 	peers          map[uint64]*peer.AddrInfo
 	connectedPeers sync.Map
+	eventCh        chan *core.CrossTransaction
 
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func New(repo *repo.Repo) (*Swarm, error) {
+func New(repo *repo.Repo,ch chan *core.CrossTransaction) (*Swarm, error) {
 	p2p, err := hubnet.New(
 		hubnet.WithLocalAddr(repo.NetworkConfig.LocalAddr),
 		hubnet.WithPrivateKey(repo.Key.Libp2pPrivKey),
@@ -51,6 +55,7 @@ func New(repo *repo.Repo) (*Swarm, error) {
 		p2p:            p2p,
 		peers:          repo.NetworkConfig.OtherNodes,
 		connectedPeers: sync.Map{},
+		eventCh:        ch,
 		ctx:            ctx,
 		cancel:         cancel,
 	}, nil
@@ -69,7 +74,7 @@ func (swarm *Swarm) Start() error {
 			log.Info("try connet","id",id,"addr",addr.String())
 			if err := retry.Retry(func(attempt uint) error {
 				if err := swarm.p2p.Connect(addr); err != nil {
-					log.Error("p2p.Connect","err",err)
+					log.Error("p2p.Connect","err",err,"addr",addr.String())
 					return err
 				}
 
@@ -93,6 +98,22 @@ func (swarm *Swarm) Start() error {
 		}(id, addr)
 	}
 	log.Info("Start successfully")
+
+	go func() {
+		for  {
+			select {
+			case ev := <-swarm.eventCh:
+				mm,err := hubnet.NewMsg(3,ev)
+				if err != nil {
+					log.Info("NewMsg",err)
+				}
+				swarm.Broadcast(mm)
+			//case <-swarm.ctx.Done():
+			//	return
+			}
+		}
+	}()
+
 	return nil
 }
 
@@ -129,8 +150,10 @@ func (swarm *Swarm) Send(id uint64, msg *hubnet.Msg) (*hubnet.Msg, error) {
 func (swarm *Swarm) Broadcast(msg *hubnet.Msg) error {
 	addrs := make([]*peer.AddrInfo, 0, len(swarm.peers))
 	for _, addr := range swarm.peers {
+		log.Info("Broadcast","id",addr.ID.String())
 		addrs = append(addrs, addr)
 	}
+	log.Info("Broadcast","len",len(addrs))
 
 	return swarm.p2p.Broadcast(addrs, msg)
 }
@@ -184,6 +207,7 @@ func (swarm *Swarm) verifyCert(id uint64) error {
 		log.Info("verifyCerts","err",err)
 		return fmt.Errorf("verify certs: %w", err)
 	}
+
 	err = swarm.p2p.Disconnect(swarm.peers[id])
 	if err != nil {
 		return fmt.Errorf("disconnect peer: %w", err)

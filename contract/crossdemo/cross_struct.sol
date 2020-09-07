@@ -2,7 +2,7 @@ pragma solidity ^0.6.0;
 library CrossStruct {
     //仅做信息登记，关联chainId
     struct Chain{
-        uint8 destination;
+        uint8 purpose;
         uint8 signConfirmCount;//最少签名数量
         uint256 maxValue;
         uint64 anchorsPositionBit;// 锚定节点 二进制表示 例如 1101001010, 最多62个锚定节点，空余位置0由外部计算
@@ -20,7 +20,7 @@ library CrossStruct {
     }
 
     struct Anchor {
-        uint8 destination;
+        uint8 purpose;
         uint8 position; // anchorsPositionBit
         bool status;//true Available
         uint256 signCount;
@@ -46,11 +46,11 @@ library CrossStruct {
         bytes32 txHash;
         bytes32 blockHash;
         uint256 value;
-        uint256 destinationValue;
+        uint256 charge;
         address payable from;
         address to;
-        uint8 chain;
-        uint8 destination;
+        uint8 origin;
+        uint8 purpose;
         bytes payload;
         uint256[] v;
         bytes32[] r;
@@ -63,8 +63,8 @@ library CrossStruct {
         string from;
         string to;
         address payable taker;
-        uint8 chain;
-        uint8 destination;
+        uint8 origin;
+        uint8 purpose;
         bytes data;
     }
 }

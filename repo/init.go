@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	packPath = "../../config"
+	packPath = "../config"
 )
 
 func Initialize(repoRoot string) error {

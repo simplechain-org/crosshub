@@ -23,7 +23,7 @@ type PeerManager interface {
 	Send(uint64, *hubnet.Msg) (*hubnet.Msg, error)
 
 	// Broadcast message to all node
-	Broadcast(*hubnet.Msg) error
+	Broadcast(interface{}) error
 
 	// Peers
 	Peers() map[uint64]*peer.AddrInfo

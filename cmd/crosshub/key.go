@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/meshplus/bitxhub-kit/crypto/asym/ecdsa"
-	"github.com/meshplus/bitxhub-kit/key"
+	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
+	"github.com/simplechain-org/crosshub/repo/key"
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/simplechain-org/crosshub/cert"
 	"github.com/urfave/cli"

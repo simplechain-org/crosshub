@@ -2,8 +2,6 @@ package hubnet
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
 	"time"
 
 	"github.com/simplechain-org/go-simplechain/rlp"
@@ -30,18 +28,23 @@ var errorToString = map[int]string{
 // structure, encode the payload into a byte array and create a
 // separate Msg with a bytes.Reader as Payload for each send.
 type Msg struct {
-	Code       uint64
+	Code       uint8
 	Size       uint32 // Size of the raw payload
-	Payload    io.Reader
+	//Payload    io.Reader
+	Bytes      []byte
 	ReceivedAt time.Time
 }
 
-func NewMsg(msgcode uint64, data interface{}) (*Msg,error) {
-	size, r, err := rlp.EncodeToReader(data)
+func NewMsg(msgcode uint8, data interface{}) (*Msg,error) {
+	//size, r, err := rlp.EncodeToReader(data)
+	//if err != nil {
+	//	return nil,err
+	//}
+	b,err :=  rlp.EncodeToBytes(data)
 	if err != nil {
 		return nil,err
 	}
-	return  &Msg{Code: msgcode, Size: uint32(size), Payload: r} , nil
+	return  &Msg{Code: msgcode, Size: uint32(len(b)), Bytes: b} , nil
 }
 
 // Decode parses the RLP content of a message into
@@ -49,10 +52,13 @@ func NewMsg(msgcode uint64, data interface{}) (*Msg,error) {
 //
 // For the decoding rules, please see package rlp.
 func (msg Msg) Decode(val interface{}) error {
-	s := rlp.NewStream(msg.Payload, uint64(msg.Size))
-	if err := s.Decode(val); err != nil {
+	//s := rlp.NewStream(msg.Payload, uint64(msg.Size))
+	//if err := s.Decode(val); err != nil {
+	//	return err
+	//	//return newPeerError(errInvalidMsg, "(code %x) (size %d) %v", msg.Code, msg.Size, err)
+	//}
+	if err := rlp.DecodeBytes(msg.Bytes,val); err != nil {
 		return err
-		//return newPeerError(errInvalidMsg, "(code %x) (size %d) %v", msg.Code, msg.Size, err)
 	}
 	return nil
 }
@@ -62,10 +68,10 @@ func (msg Msg) String() string {
 }
 
 // Discard reads any remaining payload data into a black hole.
-func (msg Msg) Discard() error {
-	_, err := io.Copy(ioutil.Discard, msg.Payload)
-	return err
-}
+//func (msg Msg) Discard() error {
+//	_, err := io.Copy(ioutil.Discard, msg.Payload)
+//	return err
+//}
 
 //type MsgReader interface {
 //	ReadMsg() (Msg, error)

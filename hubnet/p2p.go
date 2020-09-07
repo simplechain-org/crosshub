@@ -3,6 +3,7 @@ package hubnet
 import (
 	"context"
 	"fmt"
+	"github.com/simplechain-org/go-simplechain/log"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -134,7 +135,7 @@ func (p2p *P2P) Send(addr *peer.AddrInfo, msg *Msg) (*Msg, error) {
 func (p2p *P2P) Broadcast(ids []*peer.AddrInfo, msg *Msg) error {
 	for _, id := range ids {
 		if err := p2p.AsyncSend(id, msg); err != nil {
-			//log
+			log.Info("Broadcast","err",err)
 			continue
 		}
 	}
@@ -161,6 +162,7 @@ func AddrToPeerInfo(multiAddr string) (*peer.AddrInfo, error) {
 }
 
 func (p2p *P2P) Disconnect(addr *peer.AddrInfo) error {
+	p2p.streamMng.remove(addr.ID)
 	return p2p.host.Network().ClosePeer(addr.ID)
 }
 
