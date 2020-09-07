@@ -90,6 +90,7 @@ type Config struct {
 	Port     `toml:"port" json:"port"`
 	Gateway  `toml:"gateway" json:"gateway"`
 	Cert     `toml:"cert" json:"cert"`
+	Fabric   `toml:"fabric" json:"fabric"`
 }
 
 type Port struct {
@@ -103,6 +104,16 @@ type Gateway struct {
 
 type Cert struct {
 	Verify bool `toml:"verify" json:"verify"`
+}
+
+type Fabric struct {
+	User 		string `toml:"user" json:"user"`
+	ChannelId 	string `toml:"channelid" json:"channelid"`
+	ChaincodeId string `toml:"chaincodeid" json:"chaincodeid"`
+	PeerUrl     string `toml:"peerurl" json:"peerurl"`
+	ConfigPath  string `toml:"configpath" json:"configpath"`
+	Events      []string `toml:"events" json:"events"`
+	DataDir     string `toml:"datadir" json:"datadir"`
 }
 
 func (c *Config) Bytes() ([]byte, error) {

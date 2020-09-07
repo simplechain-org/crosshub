@@ -54,6 +54,10 @@ func start(ctx *cli.Context) error {
 		}
 	}
 
+	log.Info("new config","store",repo.Config.Fabric)
+
+	//fabricView.New(repo,eventCh)
+
 
 
 	<- ch
