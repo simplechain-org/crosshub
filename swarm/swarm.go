@@ -148,11 +148,21 @@ func (swarm *Swarm) Send(id uint64, msg *hubnet.Msg) (*hubnet.Msg, error) {
 }
 
 func (swarm *Swarm) Broadcast(msg *hubnet.Msg) error {
-	addrs := make([]*peer.AddrInfo, 0, len(swarm.peers))
-	for _, addr := range swarm.peers {
-		log.Info("Broadcast","id",addr.ID.String())
-		addrs = append(addrs, addr)
-	}
+	var addrs []*peer.AddrInfo
+	//for _, addr := range swarm.peers {
+	//	log.Info("Broadcast","id",addr.ID.String())
+	//	addrs = append(addrs, addr)
+	//}
+	//log.Info("Broadcast","len",len(addrs))
+
+	swarm.connectedPeers.Range(func(key, value interface{}) bool {
+		addr ,ok := value.(*peer.AddrInfo)
+		if !ok {
+			return false
+		}
+		addrs = append(addrs,addr)
+		return true
+	})
 	log.Info("Broadcast","len",len(addrs))
 
 	return swarm.p2p.Broadcast(addrs, msg)
@@ -182,15 +192,20 @@ func (swarm *Swarm) verifyCert(id uint64) error {
 	if err := swarm.checkID(id); err != nil {
 		return fmt.Errorf("check id: %w", err)
 	}
-	var msg *hubnet.Msg
-	var err error
-	msg,err = hubnet.NewMsg(1,[]byte( fmt.Sprintf("Good Afternoon!,I am %s",swarm.repo.Key.Address)))
+	selfCerts := &CertsMessage{
+		Id:         swarm.repo.NetworkConfig.PeerId,
+		AgencyCert: swarm.repo.Certs.AgencyCertData,
+		NodeCert:   swarm.repo.Certs.NodeCertData,
+	}
 
-	ret, err := swarm.Send(id, msg)
+	msg,err := hubnet.NewMsg(GetCertMsg,selfCerts)
+	if err != nil {
+		return err
+	}
+	ret,err := swarm.Send(id, msg)
 	if err != nil {
 		return fmt.Errorf("sync send: %w", err)
 	}
-
 	var certs CertsMessage
 	ret.Decode(&certs)
 	nodeCert, err := cert.ParseCert(certs.NodeCert)
@@ -204,9 +219,9 @@ func (swarm *Swarm) verifyCert(id uint64) error {
 	}
 
 	if err := verifyCerts(nodeCert, agencyCert, swarm.repo.Certs.CACert); err != nil {
-		log.Info("verifyCerts","err",err)
 		return fmt.Errorf("verify certs: %w", err)
 	}
+
 
 	err = swarm.p2p.Disconnect(swarm.peers[id])
 	if err != nil {

@@ -14,12 +14,33 @@ import (
 func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 	handler := func() error {
 		switch data.Code {
-		case 1:
-			var word []byte
-			data.Decode(&word)
-			log.Info("handler","msg",string(word))
-			swarm.handleFetchCertMessage(s)
-		case 3:
+		case GetCertMsg:
+			var certs CertsMessage
+			if err := data.Decode(&certs); err != nil {
+				log.Info("Decode msg","err",err)
+				return err
+			}
+			nodeCert, err := cert.ParseCert(certs.NodeCert)
+			if err != nil {
+				log.Info("ParseCert","err",err)
+				return fmt.Errorf("parse node cert: %w", err)
+			}
+
+			agencyCert, err := cert.ParseCert(certs.AgencyCert)
+			if err != nil {
+				log.Info("ParseCert","err",err)
+				return fmt.Errorf("parse agency cert: %w", err)
+			}
+			if err := verifyCerts(nodeCert, agencyCert, swarm.repo.Certs.CACert); err != nil {
+				log.Info("ParseCert","err",err)
+				return fmt.Errorf("verify certs: %w", err)
+			}
+			//TODO 网络拓展 swarm.connectedPeers.Store(certs.Id,addr)
+			return swarm.handleFetchCertMessage(s)
+		case CertMsg:
+
+
+		case CtxSignMsg:
 			var ev core.CrossTransaction
 			data.Decode(&ev)
 			from,err := core.CtxSender(core.MakeCtxSigner(big.NewInt(11)),&ev)
@@ -27,28 +48,11 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 				log.Info("CtxSender","err",err)
 			}
 			log.Info("handler sign msg","msg",ev,"from",from.String())
-
-
-			/*var msg hubnet.Msg
-			if size, r, err := rlp.EncodeToReader([]byte( fmt.Sprintf("Yes!,I am %s",swarm.repo.Key.Address)));err != nil {
-				log.Error("EncodeToReader","err",err)
-			} else {
-				msg = hubnet.Msg{Code: 2, Size: uint32(size), Payload: r}
-			}*/
-
-
-			//swarm.SendWithStream(s,&msg)
-		//case pb.Message_GET_BLOCK:
-		//	return swarm.handleGetBlockPack(s, m)
-		//case pb.Message_FETCH_CERT:
-		//	return swarm.handleFetchCertMessage(s)
-		//case pb.Message_CONSENSUS:
-		//	go swarm.orderMessageFeed.Send(events.OrderMessageEvent{Data: m.Data})
-		//case pb.Message_FETCH_BLOCK_SIGN:
-		//	swarm.handleFetchBlockSignMessage(s, m.Data)
+			//TODO 上链操作，待接单
+		case RtxSignMsg:
+			//TODO makeFinish
 		default:
-			//swarm.logger.WithField("module", "p2p").Errorf("can't handle msg[type: %v]", m.Type)
-			//log
+			log.Info("can't handle msg","code",data.Code)
 			return nil
 		}
 
@@ -61,24 +65,26 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 }
 
 type CertsMessage struct {
+	Id         string
 	AgencyCert []byte
 	NodeCert   []byte
 }
 
 func (swarm *Swarm) handleFetchCertMessage(s network.Stream) error {
 	certs := &CertsMessage{
+		Id:         swarm.repo.NetworkConfig.PeerId,
 		AgencyCert: swarm.repo.Certs.AgencyCertData,
 		NodeCert:   swarm.repo.Certs.NodeCertData,
 	}
 
-	var msg *hubnet.Msg
-	var err error
-	msg, err = hubnet.NewMsg(2,certs)
+	msg, err := hubnet.NewMsg(CertMsg,certs)
+	if err != nil {
+		return err
+	}
 	err = swarm.SendWithStream(s, msg)
 	if err != nil {
 		return fmt.Errorf("send msg: %w", err)
 	}
-
 	return nil
 }
 
