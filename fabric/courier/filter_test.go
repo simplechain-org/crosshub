@@ -40,7 +40,7 @@ func TestGetPrepareCrossTxs(t *testing.T) {
 		t.Fatalf("TxID, want: <0f63b3b2a634c53c3829ea8658199b190ed1db6b708875415d720c448f0022ef>, got: <%s>", preTxs[0].TxID)
 	}
 
-	if preTxs[0].TimeStamp.String() != "seconds:1598492802 nanos:138704712" {
+	if preTxs[0].TimeStamp.String() != "seconds:1598492802  nanos:138704712" {
 		t.Fatalf("TimeStamp, want: <seconds:1598492802 nanos:138704712>, got: <%s>", preTxs[0].TimeStamp.String())
 	}
 

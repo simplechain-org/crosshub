@@ -9,8 +9,7 @@ import (
 
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
 	"github.com/simplechain-org/crosshub/fabric/courier/contractlib"
-
-	"github.com/simplechain-org/go-simplechain/log"
+	"github.com/simplechain-org/crosshub/fabric/courier/utils"
 )
 
 const blockInterval = 2 * time.Second
@@ -54,7 +53,7 @@ func NewBlockSync(c client.FabricClient, txm *TxManager) *BlockSync {
 		case "commit":
 			s.filterEvents[ev] = struct{}{}
 		default:
-			log.Crit(fmt.Sprintf("[Syncer] unsupported filter event type: %s", ev))
+			utils.Logger.Crit(fmt.Sprintf("[courier.Syncer] unsupported filter event type: %s", ev))
 		}
 	}
 
@@ -66,18 +65,18 @@ func (s *BlockSync) Start() {
 	go s.syncBlock()
 	go s.processPreTxs()
 
-	log.Info("[BlockSync] started")
+	utils.Logger.Info("[courier.BlockSync] started")
 }
 
 func (s *BlockSync) Stop() {
-	log.Info("[BlockSync] stopping")
+	utils.Logger.Info("[courier.BlockSync] stopping")
 
 	s.safeClose.Do(func() {
 		close(s.stopCh)
 	})
 
 	s.wg.Wait()
-	log.Info("[BlockSync] stopped")
+	utils.Logger.Info("[courier.BlockSync] stopped")
 }
 
 func (s *BlockSync) syncBlock() {
@@ -91,11 +90,11 @@ func (s *BlockSync) syncBlock() {
 		case strings.Contains(err.Error(), "Entry not found in index"):
 			blockTimer.Reset(blockInterval)
 		case strings.Contains(err.Error(), "ignore"):
-			log.Debug(fmt.Sprintf("[BlockSync] handle %v", err))
+			utils.Logger.Debug(fmt.Sprintf("[courier.BlockSync] handle %v", err))
 			s.blockNum++
 			blockTimer.Reset(blockInterval)
 		default:
-			log.Error("[BlockSync] sync block", "err", err)
+			utils.Logger.Error("[courier.BlockSync] sync block", "err", err)
 			go s.Stop()
 		}
 	}
@@ -103,7 +102,7 @@ func (s *BlockSync) syncBlock() {
 	for {
 		select {
 		case <-blockTimer.C:
-			log.Debug("[BlockSync] sync block", "blockNumber", s.blockNum)
+			utils.Logger.Debug("[courier.BlockSync] sync block", "blockNumber", s.blockNum)
 			if err := s.txm.Set("number", s.blockNum); err != nil {
 				apply(err)
 				break
@@ -159,7 +158,7 @@ func (s *BlockSync) processPreTxs() {
 				var c contractlib.Contract
 				err := json.Unmarshal(tx.Payload, &c)
 				if err != nil {
-					log.Error("[BlockSync] processPreTxs parse Contract", " event", tx.EventName, "err", err)
+					utils.Logger.Error("[courier.BlockSync] processPreTxs parse Contract", " event", tx.EventName, "err", err)
 					s.errCh <- err
 					break
 				}
@@ -175,7 +174,7 @@ func (s *BlockSync) processPreTxs() {
 				crossTxs = append(crossTxs[:i], crossTx)
 			}
 
-			log.Debug("[BlockSync] processPreTxs", "len(crossTxs)", len(crossTxs))
+			utils.Logger.Debug("[courier.BlockSync] processPreTxs", "len(crossTxs)", len(crossTxs))
 
 			if s.syncTestHook != nil {
 				s.syncTestHook(crossTxs)
@@ -183,7 +182,7 @@ func (s *BlockSync) processPreTxs() {
 			}
 
 			if err := s.txm.AddCrossTxs(crossTxs); err != nil {
-				log.Error("[BlockSync] processPreTxs", "err", err)
+				utils.Logger.Error("[courier.BlockSync] processPreTxs", "err", err)
 				s.errCh <- err
 				break
 			}

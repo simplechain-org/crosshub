@@ -27,7 +27,7 @@ func Fatalf(format string, args ...interface{}) {
 			w = os.Stderr
 		}
 	}
-	fmt.Fprintf(w, "Fatal: "+format+"\n", args...)
+	fmt.Fprintf(w, "[courier] Fatal: "+format+"\n", args...)
 	os.Exit(1)
 }
 
