@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/simplechain-org/crosshub/chainview"
-	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/fabric/courier"
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
+
+	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/simplechain-org/crosshub/swarm"
 
@@ -48,27 +48,29 @@ func start(ctx *cli.Context) error {
 		}
 	}
 
-	if v, err := chainview.New(repo, eventCh); err != nil {
-		log.Error("chainview.New", "err", err)
-		return err
-	} else {
-		if err := v.Start(); err != nil {
-			log.Error("s.Start", "err", err)
+	if repo.Config.Role == 1 {
+		if v, err := chainview.New(repo, eventCh); err != nil {
+			log.Error("chainview.New", "err", err)
 			return err
+		} else {
+			if err := v.Start(); err != nil {
+				log.Error("s.Start", "err", err)
+				return err
+			}
 		}
+	} else {
+		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric))
+		if err != nil {
+			log.Error("[courier.Handler] new handler", "err", err)
+		}
+
+		courierHandler.Start()
+		defer courierHandler.Stop()
 	}
 
 	log.Info("new config", "store", repo.Config.Fabric)
 
 	//fabricView.New(repo,eventCh)
-	courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric))
-	if err != nil {
-		log.Error("[courier.Handler] new handler", "err", err)
-	}
-
-	courierHandler.Start()
-	defer courierHandler.Stop()
-
 	<-ch
 	return nil
 }
