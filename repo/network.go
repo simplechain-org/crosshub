@@ -2,7 +2,6 @@ package repo
 
 import (
 	"fmt"
-	"github.com/simplechain-org/go-simplechain/log"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
@@ -10,8 +9,8 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/simplechain-org/crosshub/cert"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/simplechain-org/crosshub/cert"
 )
 
 const (
@@ -25,6 +24,7 @@ const (
 type NetworkConfig struct {
 	ID         uint64
 	N          uint64
+	PeerId     string
 	LocalAddr  string
 	Nodes      []*NetworkNode
 	OtherNodes map[uint64]*peer.AddrInfo
@@ -100,10 +100,10 @@ func loadNetworkConfig(repoRoot string) (*NetworkConfig, error) {
 	}
 	// read private key to get PeerID
 	PeerID, err := GetPidFromPrivFile(filepath.Join(repoRoot, nodePrivFile))
-	log.Info("loadNetworkConfig","PeerID",PeerID)
 	if err != nil {
 		return nil, err
 	}
+	networkConfig.PeerId = PeerID
 	// sort PeerId of nodes to produce IDs:
 	sort.Sort(networkConfig)
 
