@@ -74,7 +74,6 @@ func (swarm *Swarm) Start() error {
 			log.Info("try connet","id",id,"addr",addr.String())
 			if err := retry.Retry(func(attempt uint) error {
 				if err := swarm.p2p.Connect(addr); err != nil {
-					log.Error("p2p.Connect","err",err,"addr",addr.String())
 					return err
 				}
 
