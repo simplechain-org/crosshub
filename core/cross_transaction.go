@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
-	"sync"
 	"sync/atomic"
 
 	"github.com/simplechain-org/go-simplechain/common"
@@ -173,6 +172,13 @@ func (tx *CrossTransaction) SignHash() (h common.Hash) {
 	return h
 }
 
+func (cws *CrossTransaction) Price() *big.Rat {
+	if cws.Data.Value.Cmp(common.Big0) == 0 {
+		return new(big.Rat).SetUint64(math.MaxUint64) // set a max rat
+	}
+	return new(big.Rat).SetFrac(cws.Data.Charge, cws.Data.Value)
+}
+
 // Transactions is a Transaction slice type for basic sorting.
 type CrossTransactions []*CrossTransaction
 
@@ -187,14 +193,13 @@ func (s CrossTransactions) GetRlp(i int) []byte {
 	enc, _ := rlp.EncodeToBytes(s[i])
 	return enc
 }
-
 // TxByPrice implements both the sort and the heap interface, making it useful
 // for all at once sorting as well as individually adding and removing elements.
 type CTxByPrice CrossTransactions
 
 func (s CTxByPrice) Len() int { return len(s) }
 func (s CTxByPrice) Less(i, j int) bool {
-	return s[i].Data.Charge.Cmp(s[j].Data.Charge) > 0
+	return s[i].Price().Cmp(s[j].Price()) > 0
 }
 func (s CTxByPrice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
@@ -210,215 +215,215 @@ func (s *CTxByPrice) Pop() interface{} {
 	return x
 }
 
-type CrossTransactionWithSignatures struct {
-	Data     CtxDatas
-	Status   CtxStatus `json:"status" gencodec:"required"` // default = pending
-	BlockNum uint64    `json:"blockNum" gencodec:"required"`
-
-	// caches
-	hash atomic.Value
-	size atomic.Value
-	from atomic.Value
-	lock sync.RWMutex
-}
-
-type CtxDatas struct {
-	CTxId     common.Hash `json:"ctxId" gencodec:"required"` //cross_transaction ID
-	TxHash    common.Hash `json:"txHash" gencodec:"required"`
-	BlockHash common.Hash `json:"blockHash" gencodec:"required"`        //The Hash of block in which the message resides
-	Value     *big.Int    `json:"value" gencodec:"required"` //Token for sell
-	Charge    *big.Int    `json:"charge" gencodec:"required"`
-	From      string      `json:"from" gencodec:"required"`             //Token owner
-	To        string      `json:"to" gencodec:"required"`               //Token to
-	Origin    uint8       `json:"origin" gencodec:"required"`
-	Purpose   uint8       `json:"purpose" gencodec:"required"` //Message destination networkId
-	Payload   []byte      `json:"payload"    gencodec:"required"`
-
-	// Signature values
-	V []*big.Int `json:"v" gencodec:"required"` //chainId
-	R []*big.Int `json:"r" gencodec:"required"`
-	S []*big.Int `json:"s" gencodec:"required"`
-}
-
-func NewCrossTransactionWithSignatures(ctx *CrossTransaction, num uint64) *CrossTransactionWithSignatures {
-	d := CtxDatas{
-		Value:     ctx.Data.Value,
-		CTxId:     ctx.Data.CTxId,
-		TxHash:    ctx.Data.TxHash,
-		From:      ctx.Data.From,
-		To:        ctx.Data.To,
-		BlockHash: ctx.Data.BlockHash,
-		Origin:    ctx.Data.Origin,
-		Purpose:   ctx.Data.Purpose,
-		Charge:    ctx.Data.Charge,
-		Payload:   ctx.Data.Payload,
-	}
-
-	if ctx.Data.V != nil && ctx.Data.R != nil && ctx.Data.S != nil {
-		d.V = append(d.V, ctx.Data.V)
-		d.R = append(d.R, ctx.Data.R)
-		d.S = append(d.S, ctx.Data.S)
-	}
-
-	return &CrossTransactionWithSignatures{Data: d, BlockNum: num}
-}
-
-func (cws *CrossTransactionWithSignatures) ID() common.Hash {
-	return cws.Data.CTxId
-}
-
-func (cws *CrossTransactionWithSignatures) ChainId() *big.Int {
-	cws.lock.RLock()
-	defer cws.lock.RUnlock()
-	if cws.signaturesLength() > 0 {
-		return types.DeriveChainId(cws.Data.V[0])
-	}
-	return big.NewInt(0)
-}
-func (cws *CrossTransactionWithSignatures) Destination() uint8 {
-	return cws.Data.Purpose
-}
-
-func (cws *CrossTransactionWithSignatures) Hash() (h common.Hash) {
-	if hash := cws.hash.Load(); hash != nil {
-		return hash.(common.Hash)
-	}
-	hash := sha3.NewKeccak256()
-	var b []byte
-	b = append(b, cws.Data.CTxId.Bytes()...)
-	b = append(b, cws.Data.TxHash.Bytes()...)
-	b = append(b, cws.Data.BlockHash.Bytes()...)
-	b = append(b, common.LeftPadBytes(cws.Data.Value.Bytes(), 32)...)
-	b = append(b, common.LeftPadBytes(cws.Data.Charge.Bytes(), 32)...)
-	b = append(b, cws.Data.From...)
-	b = append(b, cws.Data.To...)
-	b = append(b, cws.Data.Origin)
-	b = append(b, cws.Data.Purpose)
-	b = append(b, cws.Data.Payload...)
-	hash.Write(b)
-	hash.Sum(h[:0])
-	cws.hash.Store(h)
-	return h
-}
-
-func (cws *CrossTransactionWithSignatures) BlockHash() common.Hash {
-	return cws.Data.BlockHash
-}
-
-func (cws *CrossTransactionWithSignatures) From() string {
-	return cws.Data.From
-}
-
-func (cws *CrossTransactionWithSignatures) SetStatus(status CtxStatus) {
-	cws.Status = status
-}
-
-func (cws *CrossTransactionWithSignatures) AddSignature(ctx *CrossTransaction) error {
-	if cws.Hash() != ctx.Hash() {
-		return ErrInvalidSign
-	}
-	cws.lock.Lock()
-	defer cws.lock.Unlock()
-	for _, r := range cws.Data.R {
-		if r.Cmp(ctx.Data.R) == 0 {
-			return ErrDuplicateSign
-		}
-	}
-	cws.Data.V = append(cws.Data.V, ctx.Data.V)
-	cws.Data.R = append(cws.Data.R, ctx.Data.R)
-	cws.Data.S = append(cws.Data.S, ctx.Data.S)
-	return nil
-}
-func (cws *CrossTransactionWithSignatures) RemoveSignature(index int) {
-	cws.lock.Lock()
-	defer cws.lock.Unlock()
-	if index < cws.signaturesLength() {
-		cws.Data.V = append(cws.Data.V[:index], cws.Data.V[index+1:]...)
-		cws.Data.R = append(cws.Data.R[:index], cws.Data.R[index+1:]...)
-		cws.Data.S = append(cws.Data.S[:index], cws.Data.S[index+1:]...)
-	}
-}
-
-func (cws *CrossTransactionWithSignatures) SignaturesLength() int {
-	cws.lock.RLock()
-	defer cws.lock.RUnlock()
-	return cws.signaturesLength()
-}
-func (cws *CrossTransactionWithSignatures) signaturesLength() int {
-	l := len(cws.Data.V)
-	if l == len(cws.Data.R) && l == len(cws.Data.V) {
-		return l
-	}
-	return 0
-}
-
-func (cws *CrossTransactionWithSignatures) CrossTransaction() *CrossTransaction {
-	return &CrossTransaction{
-		Data: ctxdata{
-			Value:     cws.Data.Value,
-			CTxId:     cws.Data.CTxId,
-			TxHash:    cws.Data.TxHash,
-			From:      cws.Data.From,
-			To:        cws.Data.To,
-			BlockHash: cws.Data.BlockHash,
-			Origin:    cws.Data.Origin,
-			Purpose:   cws.Data.Purpose,
-			Charge:    cws.Data.Charge,
-			Payload:   cws.Data.Payload,
-		},
-	}
-}
-
-func (cws *CrossTransactionWithSignatures) Resolution() []*CrossTransaction {
-	cws.lock.RLock()
-	defer cws.lock.RUnlock()
-	l := cws.signaturesLength()
-	var ctxs []*CrossTransaction
-	for i := 0; i < l; i++ {
-		ctxs = append(ctxs, &CrossTransaction{
-			Data: ctxdata{
-				Value:     cws.Data.Value,
-				CTxId:     cws.Data.CTxId,
-				TxHash:    cws.Data.TxHash,
-				From:      cws.Data.From,
-				To:        cws.Data.To,
-				BlockHash: cws.Data.BlockHash,
-				Origin:    cws.Data.Origin,
-				Purpose:   cws.Data.Purpose,
-				Charge:    cws.Data.Charge,
-				Payload:   cws.Data.Payload,
-				V:         cws.Data.V[i],
-				R:         cws.Data.R[i],
-				S:         cws.Data.S[i],
-			},
-		})
-	}
-	return ctxs
-}
-
-func (cws *CrossTransactionWithSignatures) Price() *big.Rat {
-	if cws.Data.Value.Cmp(common.Big0) == 0 {
-		return new(big.Rat).SetUint64(math.MaxUint64) // set a max rat
-	}
-	return new(big.Rat).SetFrac(cws.Data.Charge, cws.Data.Value)
-}
-
-func (cws *CrossTransactionWithSignatures) Size() common.StorageSize {
-	if size := cws.size.Load(); size != nil {
-		return size.(common.StorageSize)
-	}
-	c := types.WriteCounter(0)
-	rlp.Encode(&c, &cws.Data)
-	cws.size.Store(common.StorageSize(c))
-	return common.StorageSize(c)
-}
-
-type RemoteChainInfo struct {
-	RemoteChainId uint64
-	BlockNumber   uint64
-}
-
-type OwnerCrossTransactionWithSignatures struct {
-	Cws  *CrossTransactionWithSignatures
-	Time uint64
-}
+//type CrossTransactionWithSignatures struct {
+//	Data     CtxDatas
+//	Status   CtxStatus `json:"status" gencodec:"required"` // default = pending
+//	BlockNum uint64    `json:"blockNum" gencodec:"required"`
+//
+//	// caches
+//	hash atomic.Value
+//	size atomic.Value
+//	from atomic.Value
+//	lock sync.RWMutex
+//}
+//
+//type CtxDatas struct {
+//	CTxId     common.Hash `json:"ctxId" gencodec:"required"` //cross_transaction ID
+//	TxHash    common.Hash `json:"txHash" gencodec:"required"`
+//	BlockHash common.Hash `json:"blockHash" gencodec:"required"`        //The Hash of block in which the message resides
+//	Value     *big.Int    `json:"value" gencodec:"required"` //Token for sell
+//	Charge    *big.Int    `json:"charge" gencodec:"required"`
+//	From      string      `json:"from" gencodec:"required"`             //Token owner
+//	To        string      `json:"to" gencodec:"required"`               //Token to
+//	Origin    uint8       `json:"origin" gencodec:"required"`
+//	Purpose   uint8       `json:"purpose" gencodec:"required"` //Message destination networkId
+//	Payload   []byte      `json:"payload"    gencodec:"required"`
+//
+//	// Signature values
+//	V []*big.Int `json:"v" gencodec:"required"` //chainId
+//	R []*big.Int `json:"r" gencodec:"required"`
+//	S []*big.Int `json:"s" gencodec:"required"`
+//}
+//
+//func NewCrossTransactionWithSignatures(ctx *CrossTransaction, num uint64) *CrossTransactionWithSignatures {
+//	d := CtxDatas{
+//		Value:     ctx.Data.Value,
+//		CTxId:     ctx.Data.CTxId,
+//		TxHash:    ctx.Data.TxHash,
+//		From:      ctx.Data.From,
+//		To:        ctx.Data.To,
+//		BlockHash: ctx.Data.BlockHash,
+//		Origin:    ctx.Data.Origin,
+//		Purpose:   ctx.Data.Purpose,
+//		Charge:    ctx.Data.Charge,
+//		Payload:   ctx.Data.Payload,
+//	}
+//
+//	if ctx.Data.V != nil && ctx.Data.R != nil && ctx.Data.S != nil {
+//		d.V = append(d.V, ctx.Data.V)
+//		d.R = append(d.R, ctx.Data.R)
+//		d.S = append(d.S, ctx.Data.S)
+//	}
+//
+//	return &CrossTransactionWithSignatures{Data: d, BlockNum: num}
+//}
+//
+//func (cws *CrossTransactionWithSignatures) ID() common.Hash {
+//	return cws.Data.CTxId
+//}
+//
+//func (cws *CrossTransactionWithSignatures) ChainId() *big.Int {
+//	cws.lock.RLock()
+//	defer cws.lock.RUnlock()
+//	if cws.signaturesLength() > 0 {
+//		return types.DeriveChainId(cws.Data.V[0])
+//	}
+//	return big.NewInt(0)
+//}
+//func (cws *CrossTransactionWithSignatures) Destination() uint8 {
+//	return cws.Data.Purpose
+//}
+//
+//func (cws *CrossTransactionWithSignatures) Hash() (h common.Hash) {
+//	if hash := cws.hash.Load(); hash != nil {
+//		return hash.(common.Hash)
+//	}
+//	hash := sha3.NewKeccak256()
+//	var b []byte
+//	b = append(b, cws.Data.CTxId.Bytes()...)
+//	b = append(b, cws.Data.TxHash.Bytes()...)
+//	b = append(b, cws.Data.BlockHash.Bytes()...)
+//	b = append(b, common.LeftPadBytes(cws.Data.Value.Bytes(), 32)...)
+//	b = append(b, common.LeftPadBytes(cws.Data.Charge.Bytes(), 32)...)
+//	b = append(b, cws.Data.From...)
+//	b = append(b, cws.Data.To...)
+//	b = append(b, cws.Data.Origin)
+//	b = append(b, cws.Data.Purpose)
+//	b = append(b, cws.Data.Payload...)
+//	hash.Write(b)
+//	hash.Sum(h[:0])
+//	cws.hash.Store(h)
+//	return h
+//}
+//
+//func (cws *CrossTransactionWithSignatures) BlockHash() common.Hash {
+//	return cws.Data.BlockHash
+//}
+//
+//func (cws *CrossTransactionWithSignatures) From() string {
+//	return cws.Data.From
+//}
+//
+//func (cws *CrossTransactionWithSignatures) SetStatus(status CtxStatus) {
+//	cws.Status = status
+//}
+//
+//func (cws *CrossTransactionWithSignatures) AddSignature(ctx *CrossTransaction) error {
+//	if cws.Hash() != ctx.Hash() {
+//		return ErrInvalidSign
+//	}
+//	cws.lock.Lock()
+//	defer cws.lock.Unlock()
+//	for _, r := range cws.Data.R {
+//		if r.Cmp(ctx.Data.R) == 0 {
+//			return ErrDuplicateSign
+//		}
+//	}
+//	cws.Data.V = append(cws.Data.V, ctx.Data.V)
+//	cws.Data.R = append(cws.Data.R, ctx.Data.R)
+//	cws.Data.S = append(cws.Data.S, ctx.Data.S)
+//	return nil
+//}
+//func (cws *CrossTransactionWithSignatures) RemoveSignature(index int) {
+//	cws.lock.Lock()
+//	defer cws.lock.Unlock()
+//	if index < cws.signaturesLength() {
+//		cws.Data.V = append(cws.Data.V[:index], cws.Data.V[index+1:]...)
+//		cws.Data.R = append(cws.Data.R[:index], cws.Data.R[index+1:]...)
+//		cws.Data.S = append(cws.Data.S[:index], cws.Data.S[index+1:]...)
+//	}
+//}
+//
+//func (cws *CrossTransactionWithSignatures) SignaturesLength() int {
+//	cws.lock.RLock()
+//	defer cws.lock.RUnlock()
+//	return cws.signaturesLength()
+//}
+//func (cws *CrossTransactionWithSignatures) signaturesLength() int {
+//	l := len(cws.Data.V)
+//	if l == len(cws.Data.R) && l == len(cws.Data.V) {
+//		return l
+//	}
+//	return 0
+//}
+//
+//func (cws *CrossTransactionWithSignatures) CrossTransaction() *CrossTransaction {
+//	return &CrossTransaction{
+//		Data: ctxdata{
+//			Value:     cws.Data.Value,
+//			CTxId:     cws.Data.CTxId,
+//			TxHash:    cws.Data.TxHash,
+//			From:      cws.Data.From,
+//			To:        cws.Data.To,
+//			BlockHash: cws.Data.BlockHash,
+//			Origin:    cws.Data.Origin,
+//			Purpose:   cws.Data.Purpose,
+//			Charge:    cws.Data.Charge,
+//			Payload:   cws.Data.Payload,
+//		},
+//	}
+//}
+//
+//func (cws *CrossTransactionWithSignatures) Resolution() []*CrossTransaction {
+//	cws.lock.RLock()
+//	defer cws.lock.RUnlock()
+//	l := cws.signaturesLength()
+//	var ctxs []*CrossTransaction
+//	for i := 0; i < l; i++ {
+//		ctxs = append(ctxs, &CrossTransaction{
+//			Data: ctxdata{
+//				Value:     cws.Data.Value,
+//				CTxId:     cws.Data.CTxId,
+//				TxHash:    cws.Data.TxHash,
+//				From:      cws.Data.From,
+//				To:        cws.Data.To,
+//				BlockHash: cws.Data.BlockHash,
+//				Origin:    cws.Data.Origin,
+//				Purpose:   cws.Data.Purpose,
+//				Charge:    cws.Data.Charge,
+//				Payload:   cws.Data.Payload,
+//				V:         cws.Data.V[i],
+//				R:         cws.Data.R[i],
+//				S:         cws.Data.S[i],
+//			},
+//		})
+//	}
+//	return ctxs
+//}
+//
+//func (cws *CrossTransactionWithSignatures) Price() *big.Rat {
+//	if cws.Data.Value.Cmp(common.Big0) == 0 {
+//		return new(big.Rat).SetUint64(math.MaxUint64) // set a max rat
+//	}
+//	return new(big.Rat).SetFrac(cws.Data.Charge, cws.Data.Value)
+//}
+//
+//func (cws *CrossTransactionWithSignatures) Size() common.StorageSize {
+//	if size := cws.size.Load(); size != nil {
+//		return size.(common.StorageSize)
+//	}
+//	c := types.WriteCounter(0)
+//	rlp.Encode(&c, &cws.Data)
+//	cws.size.Store(common.StorageSize(c))
+//	return common.StorageSize(c)
+//}
+//
+//type RemoteChainInfo struct {
+//	RemoteChainId uint64
+//	BlockNumber   uint64
+//}
+//
+//type OwnerCrossTransactionWithSignatures struct {
+//	Cws  *CrossTransactionWithSignatures
+//	Time uint64
+//}

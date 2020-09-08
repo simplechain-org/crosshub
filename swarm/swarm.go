@@ -31,13 +31,14 @@ type Swarm struct {
 	p2p            hubnet.Network
 	peers          map[uint64]*peer.AddrInfo
 	connectedPeers sync.Map
-	eventCh        chan *core.CrossTransaction
+	eventCh        <-chan interface{}
+	messageCh      chan<- interface{}
 
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func New(repo *repo.Repo,ch chan *core.CrossTransaction) (*Swarm, error) {
+func New(repo *repo.Repo,messageCh  chan<- interface{},eventCh <-chan interface{}) (*Swarm, error) {
 	p2p, err := hubnet.New(
 		hubnet.WithLocalAddr(repo.NetworkConfig.LocalAddr),
 		hubnet.WithPrivateKey(repo.Key.Libp2pPrivKey),
@@ -55,7 +56,8 @@ func New(repo *repo.Repo,ch chan *core.CrossTransaction) (*Swarm, error) {
 		p2p:            p2p,
 		peers:          repo.NetworkConfig.OtherNodes,
 		connectedPeers: sync.Map{},
-		eventCh:        ch,
+		eventCh:        eventCh,
+		messageCh:      messageCh,
 		ctx:            ctx,
 		cancel:         cancel,
 	}, nil
@@ -102,13 +104,22 @@ func (swarm *Swarm) Start() error {
 		for  {
 			select {
 			case ev := <-swarm.eventCh:
-				mm,err := hubnet.NewMsg(3,ev)
-				if err != nil {
-					log.Info("NewMsg",err)
+				if ctm,ok := ev.(*core.CrossTransaction);ok {
+					mm,err := hubnet.NewMsg(CtxSignMsg,ctm)
+					if err != nil {
+						log.Info("NewMsg",err)
+					}
+					swarm.Broadcast(mm)
 				}
-				swarm.Broadcast(mm)
-			//case <-swarm.ctx.Done():
-			//	return
+
+				if rtm,ok := ev.(*core.ReceptTransaction);ok {
+					mm,err := hubnet.NewMsg(RtxSignMsg,rtm)
+					if err != nil {
+						log.Info("NewMsg",err)
+					}
+					swarm.Broadcast(mm)
+				}
+
 			}
 		}
 	}()

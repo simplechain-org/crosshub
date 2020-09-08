@@ -8,7 +8,6 @@ import (
 	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/hubnet"
 	"github.com/simplechain-org/go-simplechain/log"
-	"math/big"
 )
 
 func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
@@ -43,12 +42,7 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 		case CtxSignMsg:
 			var ev core.CrossTransaction
 			data.Decode(&ev)
-			from,err := core.CtxSender(core.MakeCtxSigner(big.NewInt(11)),&ev)
-			if err != nil {
-				log.Info("CtxSender","err",err)
-			}
-			log.Info("handler sign msg","msg",ev,"from",from.String())
-			//TODO 上链操作，待接单
+			swarm.messageCh <- &ev
 		case RtxSignMsg:
 			//TODO makeFinish
 		default:

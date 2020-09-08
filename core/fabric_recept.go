@@ -16,105 +16,105 @@
 
 package core
 
-import (
-	"sync/atomic"
-
-	"github.com/simplechain-org/go-simplechain/common"
-	"github.com/simplechain-org/go-simplechain/crypto/sha3"
-)
-
-
-//type ReceptTransaction struct {
-//	CTxId       common.Hash `json:"ctxId" gencodec:"required"`         //cross_transaction ID
-//	TxHash      common.Hash `json:"txHash" gencodec:"required"`        //taker txHash
-//	From        interface{} `json:"from" gencodec:"required"`          //Token seller
-//	To          interface{} `json:"to" gencodec:"required"`            //Token buyer
-//	Origin     *big.Int    `json:"chainId" gencodec:"required"`
-//	Purpose *big.Int    `json:"destinationId" gencodec:"required"` //Message destination networkId
-//	Payload     []byte      `json:"Payload" gencodec:"required"`
-//	V           *big.Int    `json:"v" gencodec:"required"` //chainId
-//	R           *big.Int    `json:"r" gencodec:"required"`
-//	S           *big.Int    `json:"s" gencodec:"required"`
+//import (
+//	"sync/atomic"
+//
+//	"github.com/simplechain-org/go-simplechain/common"
+//	"github.com/simplechain-org/go-simplechain/crypto/sha3"
+//)
+//
+//
+////type ReceptTransaction struct {
+////	CTxId       common.Hash `json:"ctxId" gencodec:"required"`         //cross_transaction ID
+////	TxHash      common.Hash `json:"txHash" gencodec:"required"`        //taker txHash
+////	From        interface{} `json:"from" gencodec:"required"`          //Token seller
+////	To          interface{} `json:"to" gencodec:"required"`            //Token buyer
+////	Origin     *big.Int    `json:"chainId" gencodec:"required"`
+////	Purpose *big.Int    `json:"destinationId" gencodec:"required"` //Message destination networkId
+////	Payload     []byte      `json:"Payload" gencodec:"required"`
+////	V           *big.Int    `json:"v" gencodec:"required"` //chainId
+////	R           *big.Int    `json:"r" gencodec:"required"`
+////	S           *big.Int    `json:"s" gencodec:"required"`
+////}
+//type FabricRecept struct {
+//	Data frdata
+//	// caches
+//	hash     atomic.Value
+//	signHash atomic.Value
+//	size     atomic.Value
+//	from     atomic.Value
 //}
-type FabricRecept struct {
-	Data frdata
-	// caches
-	hash     atomic.Value
-	signHash atomic.Value
-	size     atomic.Value
-	from     atomic.Value
-}
-
-type frdata struct {
-	CTxId   common.Hash `json:"ctxId" gencodec:"required"`         //cross_transaction ID
-	TxHash  common.Hash `json:"txHash" gencodec:"required"`        //taker txHash
-	From    string      `json:"from" gencodec:"required"`          //Token seller
-	To      string      `json:"to" gencodec:"required"`            //Token buyer
-	taker   string      `json:"taker" gencodec:"required"`         //Token buyer address
-	Origin  uint8       `json:"origin" gencodec:"required"`
-	Purpose uint8       `json:"purpose" gencodec:"required"` //Message destination networkId
-	Payload []byte      `json:"Payload" gencodec:"required"`
-	// Signature values
-	Proof     []byte      `json:"proof" gencodec:"required"`
-}
-
-func NewFabricRecept(id, txHash common.Hash, from, to string, origin, purpose uint8,input []byte) *ReceptTransaction {
-	return &ReceptTransaction{
-		Data: rtxdata{
-			CTxId:   id,
-			TxHash:  txHash,
-			From:    from,
-			To:      to,
-			Origin:  origin,
-			Purpose: purpose,
-			Payload: input,
-		}}
-}
-
-func (tx *FabricRecept) WithSignature(sig []byte) (*FabricRecept, error) {
-	cpy := &FabricRecept{Data: tx.Data}
-	cpy.Data.Proof = sig
-	return cpy, nil
-}
-
-func (tx *FabricRecept) ID() common.Hash {
-	return tx.Data.CTxId
-}
-
-//func (tx *FabricRecept) ChainId() *big.Int {
-//	return types.DeriveChainId(tx.Data.V)
+//
+//type frdata struct {
+//	CTxId   common.Hash `json:"ctxId" gencodec:"required"`         //cross_transaction ID
+//	TxHash  common.Hash `json:"txHash" gencodec:"required"`        //taker txHash
+//	From    string      `json:"from" gencodec:"required"`          //Token seller
+//	To      string      `json:"to" gencodec:"required"`            //Token buyer
+//	taker   string      `json:"taker" gencodec:"required"`         //Token buyer address
+//	Origin  uint8       `json:"origin" gencodec:"required"`
+//	Purpose uint8       `json:"purpose" gencodec:"required"` //Message destination networkId
+//	Payload []byte      `json:"Payload" gencodec:"required"`
+//	// Signature values
+//	Proof     []byte      `json:"proof" gencodec:"required"`
 //}
-
-func (tx *FabricRecept) Destination() uint8 {
-	return tx.Data.Purpose
-}
-
-func (tx *FabricRecept) Hash() (h common.Hash) {
-	if hash := tx.hash.Load(); hash != nil {
-		return hash.(common.Hash)
-	}
-	hash := sha3.NewKeccak256()
-	var b []byte
-	b = append(b, tx.Data.CTxId.Bytes()...)
-	b = append(b, tx.Data.TxHash.Bytes()...)
-	b = append(b, tx.Data.From...)
-	b = append(b, tx.Data.To...)
-	b = append(b, tx.Data.Origin)
-	b = append(b, tx.Data.Purpose)
-	b = append(b, tx.Data.Payload...)
-	hash.Write(b)
-	hash.Sum(h[:0])
-	tx.hash.Store(h)
-	return h
-}
-
-//func (tx *ReceptTransaction) BlockHash() common.Hash {
-//	return tx.Data.BlockHash
+//
+//func NewFabricRecept(id, txHash common.Hash, from, to string, origin, purpose uint8,input []byte) *ReceptTransaction {
+//	return &ReceptTransaction{
+//		Data: rtxdata{
+//			CTxId:   id,
+//			TxHash:  txHash,
+//			From:    from,
+//			To:      to,
+//			Origin:  origin,
+//			Purpose: purpose,
+//			Payload: input,
+//		}}
 //}
-
-func (tx *FabricRecept) From() interface{} {
-	return tx.Data.From
-}
+//
+//func (tx *FabricRecept) WithSignature(sig []byte) (*FabricRecept, error) {
+//	cpy := &FabricRecept{Data: tx.Data}
+//	cpy.Data.Proof = sig
+//	return cpy, nil
+//}
+//
+//func (tx *FabricRecept) ID() common.Hash {
+//	return tx.Data.CTxId
+//}
+//
+////func (tx *FabricRecept) ChainId() *big.Int {
+////	return types.DeriveChainId(tx.Data.V)
+////}
+//
+//func (tx *FabricRecept) Destination() uint8 {
+//	return tx.Data.Purpose
+//}
+//
+//func (tx *FabricRecept) Hash() (h common.Hash) {
+//	if hash := tx.hash.Load(); hash != nil {
+//		return hash.(common.Hash)
+//	}
+//	hash := sha3.NewKeccak256()
+//	var b []byte
+//	b = append(b, tx.Data.CTxId.Bytes()...)
+//	b = append(b, tx.Data.TxHash.Bytes()...)
+//	b = append(b, tx.Data.From...)
+//	b = append(b, tx.Data.To...)
+//	b = append(b, tx.Data.Origin)
+//	b = append(b, tx.Data.Purpose)
+//	b = append(b, tx.Data.Payload...)
+//	hash.Write(b)
+//	hash.Sum(h[:0])
+//	tx.hash.Store(h)
+//	return h
+//}
+//
+////func (tx *ReceptTransaction) BlockHash() common.Hash {
+////	return tx.Data.BlockHash
+////}
+//
+//func (tx *FabricRecept) From() interface{} {
+//	return tx.Data.From
+//}
 
 //func (tx *FabricRecept) SignHash() (h common.Hash) {
 //	if hash := tx.signHash.Load(); hash != nil {

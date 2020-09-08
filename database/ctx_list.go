@@ -17,131 +17,128 @@
 package db
 
 import (
-	"math/big"
-	"sync"
-
-	"github.com/simplechain-org/go-simplechain/common"
-	cc "github.com/simplechain-org/go-simplechain/cross/core"
-
-	"github.com/Beyond-simplechain/foundation/container"
-	"github.com/Beyond-simplechain/foundation/container/redblacktree"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/simplechain-org/crosshub/core"
+	"github.com/simplechain-org/go-simplechain/common"
+	"math/big"
 )
 
-type CtxSortedByBlockNum struct {
-	items map[common.Hash]*cc.CrossTransactionWithSignatures
-	index *redblacktree.Tree
-	lock  sync.RWMutex
-}
-
-func NewCtxSortedMap() *CtxSortedByBlockNum {
-	return &CtxSortedByBlockNum{
-		items: make(map[common.Hash]*cc.CrossTransactionWithSignatures),
-		index: redblacktree.NewWith(container.UInt64Comparator, true),
-	}
-}
-
-func (m *CtxSortedByBlockNum) Get(txId common.Hash) *cc.CrossTransactionWithSignatures {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	return m.items[txId]
-}
-
-func (m *CtxSortedByBlockNum) Put(ctx *cc.CrossTransactionWithSignatures) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	id := ctx.ID()
-	if m.items[id] != nil {
-		return
-	}
-
-	m.items[id] = ctx
-	m.index.Put(ctx.BlockNum, ctx.ID())
-}
-
-func (m *CtxSortedByBlockNum) Len() int {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	return len(m.items)
-}
-
-func (m *CtxSortedByBlockNum) RemoveByID(id common.Hash) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	if tx, ok := m.items[id]; ok {
-		for itr := m.index.LowerBound(tx.BlockNum); itr != m.index.UpperBound(tx.BlockNum); itr.Next() {
-			if itr.Value().(common.Hash) == id {
-				m.index.RemoveOne(itr)
-				delete(m.items, id)
-				break
-			}
-		}
-	}
-}
-
-func (m *CtxSortedByBlockNum) RemoveUnderNum(num uint64) (removed cc.CtxIDs) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	for itr := m.index.Begin(); itr.HasNext(); {
-		this := itr
-		itr.Next()
-		number, id := this.Key().(uint64), this.Value().(common.Hash)
-		if number > num {
-			break
-		}
-		m.index.RemoveOne(this)
-		delete(m.items, id)
-	}
-	return
-}
-
-// Do calls function f on each element of the map, in forward order.
-func (m *CtxSortedByBlockNum) Do(do func(*cc.CrossTransactionWithSignatures) bool) {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	for itr := m.index.Begin(); !itr.IsEnd(); itr.Next() {
-		if ctx, ok := m.items[itr.Value().(common.Hash)]; ok && do(ctx) {
-			break
-		}
-	}
-}
+//type CtxSortedByBlockNum struct {
+//	items map[common.Hash]*cc.CrossTransactionWithSignatures
+//	index *redblacktree.Tree
+//	lock  sync.RWMutex
+//}
+//
+//func NewCtxSortedMap() *CtxSortedByBlockNum {
+//	return &CtxSortedByBlockNum{
+//		items: make(map[common.Hash]*cc.CrossTransactionWithSignatures),
+//		index: redblacktree.NewWith(container.UInt64Comparator, true),
+//	}
+//}
+//
+//func (m *CtxSortedByBlockNum) Get(txId common.Hash) *cc.CrossTransactionWithSignatures {
+//	m.lock.RLock()
+//	defer m.lock.RUnlock()
+//	return m.items[txId]
+//}
+//
+//func (m *CtxSortedByBlockNum) Put(ctx *cc.CrossTransactionWithSignatures) {
+//	m.lock.Lock()
+//	defer m.lock.Unlock()
+//	id := ctx.ID()
+//	if m.items[id] != nil {
+//		return
+//	}
+//
+//	m.items[id] = ctx
+//	m.index.Put(ctx.BlockNum, ctx.ID())
+//}
+//
+//func (m *CtxSortedByBlockNum) Len() int {
+//	m.lock.RLock()
+//	defer m.lock.RUnlock()
+//	return len(m.items)
+//}
+//
+//func (m *CtxSortedByBlockNum) RemoveByID(id common.Hash) {
+//	m.lock.Lock()
+//	defer m.lock.Unlock()
+//	if tx, ok := m.items[id]; ok {
+//		for itr := m.index.LowerBound(tx.BlockNum); itr != m.index.UpperBound(tx.BlockNum); itr.Next() {
+//			if itr.Value().(common.Hash) == id {
+//				m.index.RemoveOne(itr)
+//				delete(m.items, id)
+//				break
+//			}
+//		}
+//	}
+//}
+//
+//func (m *CtxSortedByBlockNum) RemoveUnderNum(num uint64) (removed cc.CtxIDs) {
+//	m.lock.Lock()
+//	defer m.lock.Unlock()
+//	for itr := m.index.Begin(); itr.HasNext(); {
+//		this := itr
+//		itr.Next()
+//		number, id := this.Key().(uint64), this.Value().(common.Hash)
+//		if number > num {
+//			break
+//		}
+//		m.index.RemoveOne(this)
+//		delete(m.items, id)
+//	}
+//	return
+//}
+//
+//// Do calls function f on each element of the map, in forward order.
+//func (m *CtxSortedByBlockNum) Do(do func(*cc.CrossTransactionWithSignatures) bool) {
+//	m.lock.RLock()
+//	defer m.lock.RUnlock()
+//	for itr := m.index.Begin(); !itr.IsEnd(); itr.Next() {
+//		if ctx, ok := m.items[itr.Value().(common.Hash)]; ok && do(ctx) {
+//			break
+//		}
+//	}
+//}
 
 type CrossTransactionIndexed struct {
-	PK       uint64         `storm:"id,increment"`
-	CtxId    common.Hash    `storm:"unique"`
-	From     common.Address `storm:"index"`
-	To       common.Address `storm:"index"`
-	TxHash   common.Hash    `storm:"index"`
+	PK       	uint64         `storm:"id,increment"`
+	CtxId    	common.Hash    `storm:"unique"`
+	TxHash   	common.Hash    `storm:"index"`
+	BlockHash 	common.Hash
+	Value    	*big.Int
+	Charge   	*big.Int		`storm:"index"`
+	From     	string 			`storm:"index"`
+	To       	string 			`storm:"index"`
+	Origin      uint8
+	Purpose     uint8
+	Payload     []byte
+
 	Price    *big.Float     `storm:"index"`
-	BlockNum uint64         `storm:"index"`
+	//BlockNum uint64         `storm:"index"`
 	// normal field
-	Status uint8 `storm:"index"`
+	//Status uint8 			`storm:"index"`
 
-	Value            *big.Int
-	BlockHash        common.Hash
-	DestinationId    *big.Int
-	DestinationValue *big.Int `storm:"index"`
-	Input            []byte
-
-	V []*big.Int
-	R []*big.Int
-	S []*big.Int
+	V *big.Int
+	R *big.Int
+	S *big.Int
 }
 
-func NewCrossTransactionIndexed(ctx *cc.CrossTransactionWithSignatures) *CrossTransactionIndexed {
+func NewCrossTransactionIndexed(ctx *core.CrossTransaction) *CrossTransactionIndexed {
 	return &CrossTransactionIndexed{
 		CtxId:            ctx.ID(),
-		Status:           uint8(ctx.Status),
-		BlockNum:         ctx.BlockNum,
-		From:             ctx.Data.From,
-		To:               ctx.Data.To,
-		Price:            new(big.Float).SetRat(ctx.Price()),
-		Value:            ctx.Data.Value,
 		TxHash:           ctx.Data.TxHash,
 		BlockHash:        ctx.Data.BlockHash,
-		DestinationId:    ctx.Data.DestinationId,
-		DestinationValue: ctx.Data.DestinationValue,
-		Input:            ctx.Data.Input,
+		Value:            ctx.Data.Value,
+		Charge:           ctx.Data.Charge,
+		//Status:           uint8(ctx.Status),
+		//BlockNum:         ctx.BlockNum,
+		From:             ctx.Data.From,
+		To:               ctx.Data.To,
+		Origin:           ctx.Data.Origin,
+		Purpose:          ctx.Data.Purpose,
+		Payload:          ctx.Data.Payload,
+		Price:            new(big.Float).SetRat(ctx.Price()),
 		V:                ctx.Data.V,
 		R:                ctx.Data.R,
 		S:                ctx.Data.S,
@@ -149,25 +146,23 @@ func NewCrossTransactionIndexed(ctx *cc.CrossTransactionWithSignatures) *CrossTr
 
 }
 
-func (c CrossTransactionIndexed) ToCrossTransaction() *cc.CrossTransactionWithSignatures {
-	return &cc.CrossTransactionWithSignatures{
-		Status:   cc.CtxStatus(c.Status),
-		BlockNum: c.BlockNum,
-		Data: cc.CtxDatas{
-			Value:            c.Value,
-			CTxId:            c.CtxId,
-			TxHash:           c.TxHash,
-			From:             c.From,
-			To:               c.To,
-			BlockHash:        c.BlockHash,
-			DestinationId:    c.DestinationId,
-			DestinationValue: c.DestinationValue,
-			Input:            c.Input,
-			V:                c.V,
-			R:                c.R,
-			S:                c.S,
-		},
-	}
+func (c CrossTransactionIndexed) ToCrossTransaction() *core.CrossTransaction {
+	var cts core.CrossTransaction
+	cts.Data.CTxId = c.CtxId
+	cts.Data.TxHash = c.TxHash
+	cts.Data.BlockHash = c.BlockHash
+	cts.Data.Value = c.Value
+	cts.Data.Charge = c.Charge
+	cts.Data.From = c.From
+	cts.Data.To = c.To
+	cts.Data.Origin = c.Origin
+	cts.Data.Purpose = c.Purpose
+	cts.Data.Payload = c.Payload
+	cts.Data.V = c.V
+	cts.Data.R = c.R
+	cts.Data.S = c.S
+
+	return &cts
 }
 
 type IndexDbCache lru.ARCCache

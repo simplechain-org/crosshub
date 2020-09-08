@@ -6,7 +6,6 @@ import (
 	"github.com/simplechain-org/crosshub/fabric/courier"
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
 
-	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/simplechain-org/crosshub/swarm"
 
@@ -37,8 +36,11 @@ func start(ctx *cli.Context) error {
 		return fmt.Errorf("repo load: %w", err)
 	}
 
-	eventCh := make(chan *core.CrossTransaction, 4096)
-	if s, err := swarm.New(repo, eventCh); err != nil {
+	//eventCh := make(chan *core.CrossTransaction, 4096)
+	//rtxCh  := make(chan *core.ReceptTransaction,4096)
+	eventCh := make(chan interface{},4096)
+	messageCh := make(chan interface{},4096)
+	if s, err := swarm.New(repo, messageCh,eventCh); err != nil {
 		log.Error("swarm.New", "err", err)
 		return err
 	} else {
@@ -49,7 +51,7 @@ func start(ctx *cli.Context) error {
 	}
 
 	if repo.Config.Role == 1 {
-		if v, err := chainview.New(repo, eventCh); err != nil {
+		if v, err := chainview.New(repo,eventCh,messageCh); err != nil {
 			log.Error("chainview.New", "err", err)
 			return err
 		} else {

@@ -79,7 +79,7 @@ func TestIndexDB_ReadWrite(t *testing.T) {
 
 	ctxList := generateCtx(2)
 
-	testFunction1 := func(t *testing.T, db *indexDB) {
+	testFunction1 := func(t *testing.T, db *IndexDB) {
 		assert.NoError(t, db.Write(ctxList[0]))
 		assert.EqualValues(t, db.Count(q.Eq(StatusField, cc.CtxStatusPending)), 1)
 
