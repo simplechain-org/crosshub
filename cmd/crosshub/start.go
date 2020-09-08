@@ -62,6 +62,7 @@ func start(ctx *cli.Context) error {
 		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric))
 		if err != nil {
 			log.Error("[courier.Handler] new handler", "err", err)
+			return err
 		}
 
 		courierHandler.Start()

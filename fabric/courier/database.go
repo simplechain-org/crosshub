@@ -40,6 +40,7 @@ func OpenStormDB(dataDir string) (*storm.DB, error) {
 	if dataDir != "" {
 		workDir = dataDir
 	}
+	os.MkdirAll(workDir, os.ModePerm)
 	return storm.Open(filepath.Join(workDir, "rootdb"))
 }
 
