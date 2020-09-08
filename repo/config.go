@@ -85,8 +85,8 @@ type Config struct {
 	Title    string `toml:"title" json:"title"`
 	RepoRoot string `toml:"repo_root" json:"repo_root"`
 	Contract string `toml:"contract" json:"contract"` //跨链合约地址
-	RpcIp   string `toml:"rpcip" json:"rpc_ip"`
-	RpcPort string `toml:"rpcport" json:"rpc_port"`
+	RpcIp    string `toml:"rpcip" json:"rpc_ip"`
+	RpcPort  string `toml:"rpcport" json:"rpc_port"`
 	Port     `toml:"port" json:"port"`
 	Gateway  `toml:"gateway" json:"gateway"`
 	Cert     `toml:"cert" json:"cert"`
@@ -107,13 +107,13 @@ type Cert struct {
 }
 
 type Fabric struct {
-	User 		string `toml:"user" json:"user"`
-	ChannelId 	string `toml:"channelid" json:"channelid"`
-	ChaincodeId string `toml:"chaincodeid" json:"chaincodeid"`
-	PeerUrl     string `toml:"peerurl" json:"peerurl"`
-	ConfigPath  string `toml:"configpath" json:"configpath"`
+	User        string   `toml:"user" json:"user"`
+	ChannelId   string   `toml:"channelid" json:"channelid"`
+	ChaincodeId string   `toml:"chaincodeid" json:"chaincodeid"`
+	PeerUrl     []string `toml:"peerurl" json:"peerurl"`
+	ConfigPath  string   `toml:"configpath" json:"configpath"`
 	Events      []string `toml:"events" json:"events"`
-	DataDir     string `toml:"datadir" json:"datadir"`
+	DataDir     string   `toml:"datadir" json:"datadir"`
 }
 
 func (c *Config) Bytes() ([]byte, error) {
@@ -135,7 +135,7 @@ func DefaultConfig() (*Config, error) {
 			Gateway: 9091,
 		},
 		Gateway: Gateway{AllowedOrigins: []string{"*"}},
-		Cert: Cert{Verify: true},
+		Cert:    Cert{Verify: true},
 	}, nil
 }
 
@@ -159,7 +159,7 @@ func UnmarshalConfig(repoRoot string) (*Config, error) {
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, err
 	}
-	log.Info("UnmarshalConfig","config",config)
+	log.Info("UnmarshalConfig", "config", config)
 	config.RepoRoot = repoRoot
 
 	return &config, nil
