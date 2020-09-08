@@ -8,7 +8,6 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/ledger"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
-	"github.com/simplechain-org/go-simplechain/log"
 )
 
 type FClient struct {
@@ -35,7 +34,7 @@ type MockOutChainClient struct {
 
 func (mc *MockOutChainClient) Send([]byte) error {
 	mc.count++
-	log.Info("send to OutChain", "count", mc.count)
+	utils.Logger.Info("send to OutChain", "count", mc.count)
 	return nil
 }
 
@@ -87,7 +86,7 @@ func (c *FClient) initializeSDK() {
 		utils.Fatalf("[FClient] fabsdk.New err: %+v", err)
 	}
 
-	log.Info("[FClient] initialized fabric sdk")
+	utils.Logger.Info("[FClient] initialized fabric sdk")
 
 	c.sdk = sdk
 }
@@ -100,7 +99,7 @@ func (c *FClient) initializeChannelClient() {
 		utils.Fatalf("[FClient] channel.New err: %v", err)
 	}
 
-	log.Info("[FClient] initialized channel client")
+	utils.Logger.Info("[FClient] initialized channel client")
 
 	c.cc = cc
 }
@@ -112,7 +111,7 @@ func (c *FClient) initializeLedgerClient() {
 		utils.Fatalf("[FClient] ledger.New err: %v", err)
 	}
 
-	log.Info("[FClient] initialized ledger client")
+	utils.Logger.Info("[FClient] initialized ledger client")
 
 	c.lc = lc
 }

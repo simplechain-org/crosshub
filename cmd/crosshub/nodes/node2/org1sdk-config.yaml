@@ -28,7 +28,7 @@ client:
     #    level: debug
     level: info
   cryptoconfig:
-    path: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config
+    path: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config
   # Some SDKs support pluggable KV stores, the properties under "credentialStore"
   # are implementation specific
   credentialStore:
@@ -55,9 +55,9 @@ client:
     client:
       # 使用byfn中User1@org1的证书
       key:
-        path: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.key
+        path: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.key
       cert:
-        path: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.crt
+        path: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.crt
 
 
 
@@ -152,7 +152,7 @@ organizations:
   Org1:
     mspid: Org1MSP
     # set msp files path
-    cryptoPath: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/peerOrganizations/org1.example.com/users/{username}@org1.example.com/msp
+    cryptoPath: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/peerOrganizations/org1.example.com/users/{username}@org1.example.com/msp
 
     # Add peers for org1
     peers:
@@ -167,7 +167,7 @@ organizations:
   # fabric-ca registrar enroll ID and secret, etc.
   Org2:
     mspid: Org2MSP
-    cryptoPath: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/peerOrganizations/org2.example.com/users/{username}@org2.example.com/msp
+    cryptoPath: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/peerOrganizations/org2.example.com/users/{username}@org2.example.com/msp
 
     # Add peers for org2
     peers:
@@ -179,7 +179,7 @@ organizations:
   ordererorg:
     # Membership Service Provider ID for this organization
     mspID: OrdererMSP
-    cryptoPath: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp
+    cryptoPath: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/ordererOrganizations/example.com/users/Admin@example.com/msp
 
 
 #
@@ -207,7 +207,7 @@ orderers:
     tlsCACerts:
       # Certificate location absolute path
       # Replace to orderer cert path
-      path: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+      path: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
 
 #
 # List of peers to send various requests to, including endorsement, query
@@ -233,7 +233,7 @@ peers:
 
     tlsCACerts:
       # Certificate location absolute path
-      path: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
+      path: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
 
   peer1.org1.example.com:
     # this URL is used to send endorsement and query requests
@@ -253,7 +253,7 @@ peers:
 
     tlsCACerts:
       # Certificate location absolute path
-      path: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
+      path: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/peerOrganizations/org1.example.com/tlsca/tlsca.org1.example.com-cert.pem
 
   peer0.org2.example.com:
     # Replace the port
@@ -268,7 +268,7 @@ peers:
       #will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
       allow-insecure: false
     tlsCACerts:
-      path: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
+      path: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
 
   peer1.org2.example.com:
     # Replace the port
@@ -283,7 +283,7 @@ peers:
       #will be taken into consideration if address has no protocol defined, if true then grpc or else grpcs
       allow-insecure: false
     tlsCACerts:
-      path: /home/chain/workcode/src/github.com/icodezjb/fabric-study/first-network/crypto-config/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
+      path: /home/chain/workcode/src/github.com/simplechain-org/crosshub/fabric/first-network/crypto-config/peerOrganizations/org2.example.com/tlsca/tlsca.org2.example.com-cert.pem
 
 entitymatchers:
   peer:

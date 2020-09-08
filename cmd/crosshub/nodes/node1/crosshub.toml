@@ -1,5 +1,7 @@
 title = "CrossHub conf"
 
+role = 1
+
 repo_root = ""
 
 contract = "0x737217d6768E96fee112c16a0A9DcF0af5d56979"

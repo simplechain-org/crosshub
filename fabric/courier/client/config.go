@@ -1,152 +1,70 @@
 package client
 
 import (
-	"strings"
+	"fmt"
 
 	"github.com/simplechain-org/crosshub/fabric/courier/utils"
+	"github.com/simplechain-org/crosshub/repo"
 
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/channel"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/core"
 	"github.com/hyperledger/fabric-sdk-go/pkg/core/config"
-	"github.com/spf13/pflag"
 )
-
-const (
-	UserFlag        = "user"
-	userDescription = "The user"
-	defaultUser     = "User1"
-
-	ChannelIDFlag        = "cid"
-	channelIDDescription = "The channel ID"
-	defaultChannelID     = ""
-
-	ChaincodeIDFlag        = "ccid"
-	chaincodeIDDescription = "The Chaincode ID"
-	defaultChaincodeID     = ""
-
-	PeerURLFlag        = "peer"
-	peerURLDescription = "A comma-separated list of peer targets, e.g. 'grpcs://localhost:7051,grpcs://localhost:8051'"
-	defaultPeerURL     = ""
-
-	ConfigFileFlag        = "config"
-	configFileDescription = "The path of the config.yaml file needed by fabric-sdk-go"
-	defaultConfigFile     = ""
-
-	filterEventFlag        = "events"
-	filterEventDescription = "A comma-separated list of the specified events which are in the fabric blocks, e.g. 'precommit, commit'"
-	defaultFilterEvent     = "precommit,commit"
-
-	HTTPEndpointFlag            = "endpoint"
-	HTTPEndpointFlagDescription = "The courier http server listening, e.g. 'localhost:8080'"
-	defaultHTTPEndpointFlag     = "localhost:8080"
-
-	DataDirFlag            = "datadir"
-	DataDirFlagDescription = "The courier data directory"
-	defaultDataDirFlag     = "./courier_data"
-)
-
-type options struct {
-	configFile string
-	peerUrl    string
-	events     string
-
-	User        string
-	ChannelID   string
-	ChainCodeID string
-
-	HTTPEndpoint string
-	DataDir      string
-}
 
 type Config struct {
 	// fabric client config
 	core.ConfigProvider
 	channel.RequestOption
 	FilterEvents []string
+
+	user        string
+	channelID   string
+	chaincodeID string
+	dataDir     string
 }
 
-var opts options
-
-// InitUserName initializes the user name from the provided arguments
-func InitUserName(flags *pflag.FlagSet) {
-	flags.StringVar(&opts.User, UserFlag, defaultUser, userDescription)
-}
-
-// InitChannelID initializes the channel ID from the provided arguments
-func InitChannelID(flags *pflag.FlagSet) {
-	flags.StringVar(&opts.ChannelID, ChannelIDFlag, defaultChannelID, channelIDDescription)
-}
-
-// InitChaincodeID initializes the chaincode ID from the provided arguments
-func InitChaincodeID(flags *pflag.FlagSet) {
-	flags.StringVar(&opts.ChainCodeID, ChaincodeIDFlag, defaultChaincodeID, chaincodeIDDescription)
-}
-
-// InitPeerURL initializes the peer URL from the provided arguments
-func InitPeerURL(flags *pflag.FlagSet) {
-	flags.StringVar(&opts.peerUrl, PeerURLFlag, defaultPeerURL, peerURLDescription)
-}
-
-// InitConfigFile initializes the config file path from the provided arguments
-func InitConfigFile(flags *pflag.FlagSet) {
-	flags.StringVar(&opts.configFile, ConfigFileFlag, defaultConfigFile, configFileDescription)
-}
-
-// InitFilterEvents initializes the filter events from the provided arguments
-func InitFilterEvents(flags *pflag.FlagSet) {
-	flags.StringVar(&opts.events, filterEventFlag, defaultFilterEvent, filterEventDescription)
-}
-
-// HTTPEndpoint initializes the courier http server listening from the provided arguments
-func InitHTTPEndpoint(flags *pflag.FlagSet) {
-	flags.StringVar(&opts.HTTPEndpoint, HTTPEndpointFlag, defaultHTTPEndpointFlag, HTTPEndpointFlagDescription)
-}
-
-// InitDataDir initializes the courier data directory from the provided arguments
-func InitDataDir(flags *pflag.FlagSet) {
-	flags.StringVar(&opts.DataDir, DataDirFlag, defaultDataDirFlag, DataDirFlagDescription)
-}
-
-func peerURLs() []string {
-	if opts.peerUrl == "" {
-		utils.Fatalf("[Config] peer not set")
+func checkConfig(cfg repo.Fabric) error {
+	var elem string
+	switch {
+	case cfg.DataDir == "":
+		elem = "datadir"
+	case cfg.ChannelId == "":
+		elem = "channelid"
+	case cfg.ChaincodeId == "":
+		elem = "chaincodeid"
+	case cfg.User == "":
+		elem = "user"
+	case cfg.PeerUrl == nil:
+		elem = "peerurl"
+	case cfg.Events == nil:
+		elem = "events"
+	case cfg.ConfigPath == "":
+		elem = "configpath"
 	}
 
-	var urls []string
-	if len(strings.TrimSpace(opts.peerUrl)) > 0 {
-		peerUrls := strings.Split(opts.peerUrl, ",")
-		for _, url := range peerUrls {
-			urls = append(urls, url)
-		}
+	if elem != "" {
+		return fmt.Errorf("%s not set", elem)
 	}
-
-	return urls
-}
-
-func filterEvents() []string {
-	if opts.events == "" {
-		utils.Fatalf("[Config] filter events not set")
-	}
-
-	var filterEvents []string
-	if len(strings.TrimSpace(opts.events)) > 0 {
-		events := strings.Split(opts.events, ",")
-		for _, ev := range events {
-			filterEvents = append(filterEvents, ev)
-		}
-	}
-
-	return filterEvents
+	return nil
 }
 
 // InitConfig initializes the configuration
-func InitConfig() *Config {
-	cnfg := config.FromFile(opts.configFile)
+func InitConfig(fabric repo.Fabric) *Config {
+
+	if err := checkConfig(fabric); err != nil {
+		utils.Fatalf("[courier.Config] err: %v", err)
+	}
+
+	cnfg := config.FromFile(fabric.ConfigPath)
 
 	cfg := &Config{
 		ConfigProvider: cnfg,
-		RequestOption:  channel.WithTargetEndpoints(peerURLs()...),
-		FilterEvents:   filterEvents(),
+		RequestOption:  channel.WithTargetEndpoints(fabric.PeerUrl...),
+		FilterEvents:   fabric.Events,
+		user:           fabric.User,
+		chaincodeID:    fabric.ChaincodeId,
+		channelID:      fabric.ChannelId,
+		dataDir:        fabric.DataDir,
 	}
 
 	return cfg
@@ -154,42 +72,20 @@ func InitConfig() *Config {
 
 // InitUserName initializes the user name from the provided arguments
 func (c *Config) UserName() string {
-	if opts.User == "" {
-		utils.Fatalf("[Config] user not set")
-	}
-
-	return opts.User
+	return c.user
 }
 
 // ChannelID returns the channel ID
 func (c *Config) ChannelID() string {
-	if opts.User == "" {
-		utils.Fatalf("[Config] cid not set")
-	}
-
-	return opts.ChannelID
+	return c.channelID
 }
 
 // ChainCodeID returns the chaicode ID
 func (c *Config) ChainCodeID() string {
-	if opts.ChannelID == "" {
-		utils.Fatalf("[Config] ccid not set")
-	}
-
-	return opts.ChainCodeID
-}
-
-// PeerURLs returns a list of peer URLs
-func (c *Config) PeerURLs() []string {
-	return peerURLs()
-}
-
-// ServerURL returns the courier http server url
-func (c *Config) HTTPEndpoint() string {
-	return opts.HTTPEndpoint
+	return c.chaincodeID
 }
 
 // DataDir returns the courier data directory
 func (c *Config) DataDir() string {
-	return opts.DataDir
+	return c.dataDir
 }

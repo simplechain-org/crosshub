@@ -7,12 +7,12 @@ import (
 
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
 	"github.com/simplechain-org/crosshub/fabric/courier/contractlib"
+	"github.com/simplechain-org/crosshub/fabric/courier/utils"
 	"github.com/simplechain-org/crosshub/fabric/courier/utils/prque"
 
 	"github.com/asdine/storm/v3"
 	"github.com/asdine/storm/v3/q"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/simplechain-org/go-simplechain/log"
 )
 
 type CrossTx struct {
@@ -83,31 +83,31 @@ func NewTxManager(fabCli client.FabricClient, outCli client.OutChainClient, db D
 }
 
 func (t *TxManager) Start() {
-	log.Info("[TxManager] starting")
+	utils.Logger.Info("[courier.TxManager] starting")
 	t.wg.Add(2)
 	go t.ProcessCrossTxs()
 	go t.ProcessCrossTxReceipts()
 
 	t.reload()
-	log.Info("[TxManager] started")
+	utils.Logger.Info("[courier.TxManager] started")
 }
 
 func (t *TxManager) Stop() {
-	log.Info("[TxManager] stopping")
+	utils.Logger.Info("[courier.TxManager] stopping")
 	close(t.stopCh)
 	t.wg.Wait()
 
 	t.fClient.Close()
-	log.Info("[TxManager] fClient closed")
+	utils.Logger.Info("[courier.TxManager] fClient closed")
 
 	t.oClient.Close()
-	log.Info("[TxManager] oClient closed")
+	utils.Logger.Info("[courier.TxManager] oClient closed")
 
-	log.Info("[TxManager] stopped")
+	utils.Logger.Info("[courier.TxManager] stopped")
 }
 
 func (t *TxManager) reload() {
-	log.Debug("[TxManager] reloading")
+	utils.Logger.Debug("[courier.TxManager] reloading")
 	toPending := t.DB.Query(0, 0, []FieldName{TimestampField}, false, q.Eq(StatusField, contractlib.Init))
 
 	t.pending.mu.Lock()
@@ -118,7 +118,7 @@ func (t *TxManager) reload() {
 
 	t.pending.process <- struct{}{}
 
-	log.Debug("[TxManager] reload completed")
+	utils.Logger.Debug("[courier.TxManager] reload completed")
 	//TODO: executed queue
 }
 
@@ -148,10 +148,10 @@ func (t *TxManager) AddCrossTxs(txs []*CrossTx) error {
 func (t *TxManager) ProcessCrossTxs() {
 	defer func() {
 		t.wg.Done()
-		log.Info("[TxManager] process crossTx stopped")
+		utils.Logger.Info("[courier.TxManager] process crossTx stopped")
 	}()
 
-	log.Info("[TxManager] process crossTx started")
+	utils.Logger.Info("[courier.TxManager] process crossTx started")
 	for {
 		select {
 		case <-t.pending.process:
@@ -171,13 +171,13 @@ func (t *TxManager) ProcessCrossTxs() {
 			for _, tx := range pending {
 				raw, err := json.Marshal(tx)
 				if err != nil {
-					log.Error("[TxManager] marshal tx", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
+					utils.Logger.Error("[courier.TxManager] marshal tx", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
 					continue
 				}
 
 				// TODO: batch send, MaxBatchSize = 64
 				if err := t.oClient.Send(raw); err != nil {
-					log.Error("[TxManager] send tx to OutChain", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
+					utils.Logger.Error("[courier.TxManager] send tx to OutChain", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
 					t.pending.prq.Push(tx, -tx.TimeStamp.Seconds)
 					continue
 				}
@@ -190,12 +190,12 @@ func (t *TxManager) ProcessCrossTxs() {
 
 			go func() {
 				if err := t.DB.Updates(successList, updaters); err != nil {
-					log.Debug("[TxManager] update Init to Pending", "len(successList)", len(successList), "err", err)
+					utils.Logger.Debug("[courier.TxManager] update Init to Pending", "len(successList)", len(successList), "err", err)
 					panic(err)
 				}
 			}()
 
-			log.Info("[TxManager] update Init to Pending", "len(successList)", len(successList))
+			utils.Logger.Info("[courier.TxManager] update Init to Pending", "len(successList)", len(successList))
 
 		case <-t.stopCh:
 			return
@@ -218,7 +218,7 @@ func (t *TxManager) AddCrossTxReceipts(ctrs []CrossTxReceipt) error {
 		})
 	}
 
-	log.Debug("[TxManager] handle receipt", "ids", ids)
+	utils.Logger.Debug("[courier.TxManager] handle receipt", "ids", ids)
 
 	return t.DB.Updates(ids, updaters)
 }
@@ -226,10 +226,10 @@ func (t *TxManager) AddCrossTxReceipts(ctrs []CrossTxReceipt) error {
 func (t *TxManager) ProcessCrossTxReceipts() {
 	defer func() {
 		t.wg.Done()
-		log.Info("[TxManager] process crossTx receipts stopped")
+		utils.Logger.Info("[courier.TxManager] process crossTx receipts stopped")
 	}()
 
-	log.Info("[TxManager] process crossTx receipts started")
+	utils.Logger.Info("[courier.TxManager] process crossTx receipts started")
 	for {
 		select {
 		case <-t.executed.process:
@@ -245,11 +245,11 @@ func (t *TxManager) ProcessCrossTxReceipts() {
 
 			if err := t.AddCrossTxReceipts(executed); err != nil {
 				if errors.Is(err, storm.ErrNotFound) {
-					log.Info("[TxManager] discard receipts", "receipts", executed)
+					utils.Logger.Info("[courier.TxManager] discard receipts", "receipts", executed)
 					break
 				}
 
-				log.Warn("[TxManager] handle receipt", "err", err)
+				utils.Logger.Warn("[courier.TxManager] handle receipt", "err", err)
 
 				for _, ctr := range executed {
 					t.executed.prq.Push(ctr, -ctr.Sequence)
@@ -257,7 +257,7 @@ func (t *TxManager) ProcessCrossTxReceipts() {
 				break
 			}
 
-			log.Info("[TxManager] update Pending to Executed", "len(successList)", len(executed))
+			utils.Logger.Info("[courier.TxManager] update Pending to Executed", "len(successList)", len(executed))
 
 			t.wg.Add(1)
 			go func() {
@@ -266,7 +266,7 @@ func (t *TxManager) ProcessCrossTxReceipts() {
 				for _, ctr := range executed {
 					_, err := t.fClient.InvokeChainCode("commit", []string{ctr.CrossID, ctr.Receipt})
 					if err != nil {
-						log.Error("[ProcessReq] send tx to fabric", "InvokeChainCode err", err)
+						utils.Logger.Error("[courier.TxManager] send tx to fabric", "InvokeChainCode err", err)
 					}
 
 					t.executed.prq.Push(ctr, -ctr.Sequence)

@@ -10,7 +10,6 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/hyperledger/fabric-protos-go/common"
 	"github.com/hyperledger/fabric-protos-go/peer"
-	"github.com/simplechain-org/go-simplechain/log"
 )
 
 // transactionActions aliasing for peer.TransactionAction pointers slice
@@ -25,7 +24,7 @@ func (ta transactionActions) toFilteredActions() (*peer.FilteredTransaction_Tran
 		}
 
 		if chaincodeActionPayload.Action == nil {
-			log.Debug("[Filter] chaincode action, the payload action is nil, skipping")
+			utils.Logger.Debug("[courier.Filter] chaincode action, the payload action is nil, skipping")
 			continue
 		}
 		propRespPayload, err := utils.GetProposalResponsePayload(chaincodeActionPayload.Action.ProposalResponsePayload)

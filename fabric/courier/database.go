@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/simplechain-org/crosshub/fabric/courier/contractlib"
-	"github.com/simplechain-org/go-simplechain/log"
+	"github.com/simplechain-org/crosshub/fabric/courier/utils"
 
 	"github.com/asdine/storm/v3"
 	"github.com/asdine/storm/v3/q"
@@ -63,7 +63,7 @@ func (s *Store) Get(key string) uint64 {
 }
 
 func (s *Store) Save(txList []*CrossTx) error {
-	log.Debug("[Store] to save cross txs", "len(txList)", len(txList))
+	utils.Logger.Debug("[courier.Store] to save cross txs", "len(txList)", len(txList))
 
 	withTransaction, err := s.db.Begin(true)
 	if err != nil {
@@ -76,22 +76,22 @@ func (s *Store) Save(txList []*CrossTx) error {
 		err = withTransaction.One(CrossIdIndex, newTx.CrossID, &oldTx)
 
 		if err == storm.ErrNotFound {
-			log.Debug("[Store] save new cross tx", "crossID", newTx.CrossID, "status", newTx.GetStatus(), "blockNumber", newTx.BlockNumber)
+			utils.Logger.Debug("[courier.Store] save new cross tx", "crossID", newTx.CrossID, "status", newTx.GetStatus(), "blockNumber", newTx.BlockNumber)
 			if err = withTransaction.Save(newTx); err != nil {
 				return fmt.Errorf("db save err: %w", err)
 			}
 		} else if oldTx.IContract == nil {
-			log.Warn("[Store] parse old crossTx failed", "crossID", oldTx.CrossID)
+			utils.Logger.Warn("[courier.Store] parse old crossTx failed", "crossID", oldTx.CrossID)
 		} else if newTx.GetStatus() == contractlib.Finished {
-			log.Debug("[Store] receive Finished crossTx ", "crossID", newTx.CrossID, "txId", newTx.TxID)
+			utils.Logger.Debug("[courier.Store] receive Finished crossTx ", "crossID", newTx.CrossID, "txId", newTx.TxID)
 			// update old status, discard new
 			oldTx.UpdateStatus(contractlib.Completed)
 			if err = withTransaction.Update(&oldTx); err != nil {
 				return fmt.Errorf("db update err: %w", err)
 			}
-			log.Info("[Store] update Finished to Completed, cross chain transaction completed", "crossID", newTx.CrossID, "txId", newTx.TxID)
+			utils.Logger.Info("[courier.Store] update Finished to Completed, cross chain transaction completed", "crossID", newTx.CrossID, "txId", newTx.TxID)
 		} else {
-			log.Warn("[Store] duplicate crossTx", "crossID", newTx.CrossID, "old.status", oldTx.GetStatus(), "new.status", newTx.GetStatus())
+			utils.Logger.Warn("[courier.Store] duplicate crossTx", "crossID", newTx.CrossID, "old.status", oldTx.GetStatus(), "new.status", newTx.GetStatus())
 			continue
 		}
 	}
@@ -113,7 +113,7 @@ func (s *Store) Updates(idList []string, updaters []func(c *CrossTx)) error {
 		return fmt.Errorf("invalid update params")
 	}
 
-	log.Debug("[Store] update list", "idList", idList)
+	utils.Logger.Debug("[courier.Store] update list", "idList", idList)
 
 	withTransaction, err := s.db.Begin(true)
 	if err != nil {
@@ -134,7 +134,7 @@ func (s *Store) Updates(idList []string, updaters []func(c *CrossTx)) error {
 		}
 	}
 
-	log.Debug("[Store] update list", "successes", len(idList))
+	utils.Logger.Debug("[courier.Store] update list", "successes", len(idList))
 
 	return withTransaction.Commit()
 }
