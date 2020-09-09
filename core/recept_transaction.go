@@ -58,9 +58,9 @@ type ReceptTransaction struct {
 type rtxdata struct {
 	CTxId   common.Hash `json:"ctxId" gencodec:"required"`         //cross_transaction ID
 	TxHash  common.Hash `json:"txHash" gencodec:"required"`        //taker txHash
-	From    string      `json:"from" gencodec:"required"`          //Token seller
-	To      string      `json:"to" gencodec:"required"`            //Token buyer
-	taker   string      `json:"taker" gencodec:"required"`         //Token buyer address
+	From    common.Address  `json:"from" gencodec:"required"`          //Token seller
+	To      common.Address      `json:"to" gencodec:"required"`            //Token buyer
+	Taker   string      `json:"taker" gencodec:"required"`         //Token buyer address
 	Origin  uint8       `json:"origin" gencodec:"required"`
 	Purpose uint8       `json:"purpose" gencodec:"required"` //Message destination networkId
 	Payload []byte      `json:"Payload" gencodec:"required"`
@@ -70,13 +70,14 @@ type rtxdata struct {
 	S *big.Int `json:"s" gencodec:"required"`
 }
 
-func NewReceptTransaction(id, txHash common.Hash, from, to string, origin, purpose uint8,input []byte) *ReceptTransaction {
+func NewReceptTransaction(id, txHash common.Hash, from, to common.Address,taker string, origin, purpose uint8,input []byte) *ReceptTransaction {
 	return &ReceptTransaction{
 		Data: rtxdata{
 			CTxId:   id,
 			TxHash:  txHash,
 			From:    from,
 			To:      to,
+			Taker:   taker,
 			Origin:  origin,
 			Purpose: purpose,
 			Payload: input,
@@ -116,8 +117,9 @@ func (tx *ReceptTransaction) Hash() (h common.Hash) {
 	var b []byte
 	b = append(b, tx.Data.CTxId.Bytes()...)
 	b = append(b, tx.Data.TxHash.Bytes()...)
-	b = append(b, tx.Data.From...)
-	b = append(b, tx.Data.To...)
+	b = append(b, tx.Data.From.Bytes()...)
+	b = append(b, tx.Data.To.Bytes()...)
+	b = append(b, tx.Data.Taker...)
 	b = append(b, tx.Data.Origin)
 	b = append(b, tx.Data.Purpose)
 	b = append(b, tx.Data.Payload...)
@@ -143,8 +145,9 @@ func (tx *ReceptTransaction) SignHash() (h common.Hash) {
 	var b []byte
 	b = append(b, tx.Data.CTxId.Bytes()...)
 	b = append(b, tx.Data.TxHash.Bytes()...)
-	b = append(b, tx.Data.From...)
-	b = append(b, tx.Data.To...)
+	b = append(b, tx.Data.From.Bytes()...)
+	b = append(b, tx.Data.To.Bytes()...)
+	b = append(b, tx.Data.Taker...)
 	b = append(b, tx.Data.Origin)
 	b = append(b, tx.Data.Purpose)
 	b = append(b, tx.Data.Payload...)

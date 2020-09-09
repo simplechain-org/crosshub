@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/simplechain-org/crosshub/core"
+	db "github.com/simplechain-org/crosshub/database"
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/simplechain-org/go-simplechain"
+	"github.com/simplechain-org/go-simplechain/cross"
 	"github.com/simplechain-org/go-simplechain/crypto"
 	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
 	"github.com/simplechain-org/go-simplechain/log"
@@ -41,27 +43,33 @@ type Viewer struct {
 	SimpleClient 	*ethclient.Client
 	Address      	string
 	currentHeight   uint64
-	ctmsChan     	chan *core.CrossTransaction
+	eventCh        chan<- interface{}
+	messageCh      <-chan interface{}
+
 	PrivateKey      *ecdsa.PrivateKey
+	Store     		*db.IndexDB
 
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func New(repo *repo.Repo,ch chan *core.CrossTransaction) (*Viewer,error) {
+func New(repo *repo.Repo,eventCh chan<- interface{}, messageCh <-chan interface{}) (*Viewer,error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	//log.Info("New","addr",repo.Config.RpcUrl)
 	client, err := rpc.DialContext(ctx,fmt.Sprintf("http://%s:%s", repo.Config.RpcIp, repo.Config.RpcPort))
 	if err != nil {
 		return nil, err
 	}
+
 	return &Viewer{
 		Client: client,
 		SimpleClient: ethclient.NewClient(client),
 		Address: repo.Config.Contract,
 		currentHeight: 3937000,
-		ctmsChan: ch,
+		eventCh:	eventCh,
+		messageCh:  messageCh,
 		PrivateKey: repo.Key.PrivKey.(*ecdsa.PrivateKey),
+		Store: db.NewIndexDB(big.NewInt(5),cross.DataDir,4096),
 		ctx: ctx,
 		cancel: cancel,
 	},nil
@@ -86,6 +94,24 @@ func (this *Viewer)loop()  {
 			return
 		case <-eventTicker.C:
 			this.GetEvents()
+		case ev := <-this.messageCh:
+			if ctm,ok := ev.(*core.CrossTransaction);ok {
+				//store
+				from,err := core.CtxSender(core.MakeCtxSigner(big.NewInt(11)),ctm)
+				if err != nil {
+					log.Info("CtxSender","err",err)
+				}
+				log.Info("handler sign msg","msg",ev,"from",from.String())
+				//TODO 上链操作，待接单
+				err =this.Store.Write(ctm)
+				if err != nil {
+					log.Error("write","err",err)
+				}
+			}
+			if rtm,ok := ev.(*core.ReceptTransaction);ok {
+				//send Tx
+				log.Info("rtm","rtm",rtm)
+			}
 		}
 	}
 }
@@ -135,7 +161,7 @@ func (this *Viewer) EventLog(logs []types.Log) {
 				log.Info("EventLog","Unpack err",err)
 			}
 
-			ctm :=  core.NewCrossTransaction(args.Value,args.DestValue,args.From,args.To,1,args.Purpose, args.TxId,event.TxHash,event.BlockHash,args.Payload)
+			ctm :=  core.NewCrossTransaction(args.Value,args.DestValue,args.From,args.To,2,args.Purpose, args.TxId,event.TxHash,event.BlockHash,args.Payload)
 			signHash := func(hash []byte) ([]byte, error) {
 				return  crypto.Sign(hash,this.PrivateKey.K)
 			}
@@ -151,21 +177,43 @@ func (this *Viewer) EventLog(logs []types.Log) {
 			if err != nil {
 				log.Info("PublicKey","err",err)
 			}
+
 			log.Info("receive ctx msg","msg",args,"ctms",ctms,"sender",from.String(),"publicKey",publicKey.String())
-			this.ctmsChan <- ctms
-			//TODO ctx and Handle
-			//ctxMsg := core.NewCrossTransaction(args.Value,args.DestValue,args.From,args.To,)
+			//err = this.Store.Write(ctms)
+			//if err != nil {
+			//	log.Error("Write","err",err)
+			//}
+			//TODO 本地端跨链交易显示
+			this.eventCh <- ctms
 		case takerTx:
 			var args CrossTakerTx
 			err := abiParsed.Unpack(&args, "TakerTx", event.Data)
 			if err != nil {
 				log.Info("EventLog","Unpack err",err)
 			}
-			log.Info("receive rtx msg","msg",args.RemoteChainId.String())
+			rtm := core.NewReceptTransaction(args.TxId,event.TxHash,args.From,args.To,args.Taker,2,args.Purpose,args.Payload)
+			signHash := func(hash []byte) ([]byte, error) {
+				return  crypto.Sign(hash,this.PrivateKey.K)
+			}
+			rtms,err :=  core.SignRtx(rtm,core.MakeRtxSigner(big.NewInt(11)),signHash)
+			if err != nil {
+				log.Info("SignRtx","err",err)
+			}
+			this.eventCh <- rtms
 			//TODO rtx and handle
 			//rtxMsg := core.NewReceptTransaction()
 		case makerFinish:
-			log.Info("receive finish msg")
+			var args CrossMakerFinish
+			err := abiParsed.Unpack(&args, "MakerFinish", event.Data)
+			if err != nil {
+				log.Info("EventLog","Unpack err",err)
+			}
+			log.Info("receive finish msg","Id",hexutil.Encode(args.TxId[:]))
+
+			err = this.Store.Deletes([]common.Hash{args.TxId})
+			if err != nil {
+				log.Error("Deletes","Id",hexutil.Encode(args.TxId[:]))
+			}
 			//TODO finish handle
 		}
 	}
@@ -184,11 +232,11 @@ type CrossMakerTx struct {
 
 type CrossTakerTx struct {
 	TxId          [32]byte
-	To            common.Address
-	RemoteChainId *big.Int
 	From          common.Address
-	Value         *big.Int
-	DestValue     *big.Int
+	To            common.Address
+	Taker         string
+	Purpose       uint8
+	Payload       []byte
 	//Raw           types.Log
 }
 

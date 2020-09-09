@@ -19,19 +19,17 @@ package db
 import (
 	"errors"
 	"fmt"
+	"github.com/simplechain-org/crosshub/core"
 	"math/big"
 
 	"github.com/simplechain-org/go-simplechain/common"
 	"github.com/simplechain-org/go-simplechain/log"
 
-	cc "github.com/simplechain-org/go-simplechain/cross/core"
-
 	"github.com/asdine/storm/v3"
-	"github.com/asdine/storm/v3/index"
 	"github.com/asdine/storm/v3/q"
 )
 
-type indexDB struct {
+type IndexDB struct {
 	chainID *big.Int
 	root    *storm.DB // root db of stormDB
 	db      storm.Node
@@ -50,13 +48,17 @@ const (
 	FromField        FieldName = "From"
 	ToField          FieldName = "To"
 	DestinationValue FieldName = "Charge"
-	BlockNumField    FieldName = "BlockNum"
+	//BlockNumField    FieldName = "BlockNum"
 )
 
-func NewIndexDB(chainID *big.Int, rootDB *storm.DB, cacheSize uint64) *indexDB {
+func NewIndexDB(chainID *big.Int, path string, cacheSize uint64) *IndexDB {
 	dbName := "chain" + chainID.String()
 	log.Info("Open IndexDB", "dbName", dbName, "cacheSize", cacheSize)
-	return &indexDB{
+	rootDB,err := storm.Open(path)
+	if err != nil {
+		log.Error("NewIndexDB","err",err)
+	}
+	return &IndexDB{
 		chainID: chainID,
 		db:      rootDB.From(dbName).WithBatch(true),
 		cache:   newIndexDbCache(int(cacheSize)),
@@ -64,41 +66,41 @@ func NewIndexDB(chainID *big.Int, rootDB *storm.DB, cacheSize uint64) *indexDB {
 	}
 }
 
-func (d *indexDB) ChainID() *big.Int {
+func (d *IndexDB) ChainID() *big.Int {
 	return d.chainID
 }
 
-func (d *indexDB) Count(filter ...q.Matcher) int {
+func (d *IndexDB) Count(filter ...q.Matcher) int {
 	count, _ := d.db.Select(filter...).Count(&CrossTransactionIndexed{})
 	return count
 }
 
-func (d *indexDB) Load() error {
+func (d *IndexDB) Load() error {
 	return nil
 }
 
-func (d *indexDB) Height() uint64 {
-	var ctxs []*CrossTransactionIndexed
-	if err := d.db.AllByIndex(BlockNumField, &ctxs, storm.Limit(1), storm.Reverse()); err != nil || len(ctxs) == 0 {
-		return 0
-	}
-	return ctxs[0].BlockNum
-}
+//func (d *IndexDB) Height() uint64 {
+//	var ctxs []*CrossTransactionIndexed
+//	if err := d.db.AllByIndex(BlockNumField, &ctxs, storm.Limit(1), storm.Reverse()); err != nil || len(ctxs) == 0 {
+//		return 0
+//	}
+//	return ctxs[0].BlockNum
+//}
 
-func (d *indexDB) Repair() error {
+func (d *IndexDB) Repair() error {
 	return d.db.ReIndex(&CrossTransactionIndexed{})
 }
 
-func (d *indexDB) Clean() error {
+func (d *IndexDB) Clean() error {
 	return d.db.Drop(&CrossTransactionIndexed{})
 }
 
-func (d *indexDB) Close() error {
+func (d *IndexDB) Close() error {
 	return d.db.Commit()
 }
 
-func (d *indexDB) Write(ctx *cc.CrossTransactionWithSignatures) error {
-	if err := d.Writes([]*cc.CrossTransactionWithSignatures{ctx}, true); err != nil {
+func (d *IndexDB) Write(ctx *core.CrossTransaction) error {
+	if err := d.Writes([]*core.CrossTransaction{ctx}, true); err != nil {
 		return err
 	}
 	if d.cache != nil {
@@ -107,7 +109,7 @@ func (d *indexDB) Write(ctx *cc.CrossTransactionWithSignatures) error {
 	return nil
 }
 
-func (d *indexDB) Writes(ctxList []*cc.CrossTransactionWithSignatures, replaceable bool) (err error) {
+func (d *IndexDB) Writes(ctxList []*core.CrossTransaction, replaceable bool) (err error) {
 	d.logger.Debug("write cross transaction", "count", len(ctxList), "replaceable", replaceable)
 	tx, err := d.db.Begin(true)
 	if err != nil {
@@ -119,15 +121,15 @@ func (d *indexDB) Writes(ctxList []*cc.CrossTransactionWithSignatures, replaceab
 		if !replaceable {
 			return false
 		}
-		if new.Status == uint8(cc.CtxStatusPending) {
-			return false
-		}
-		if new.BlockNum < old.BlockNum {
-			return false
-		}
-		if new.Status <= old.Status { //TODO:无法解决同步其他节点时，其他节点回滚的状态
-			return false
-		}
+		//if new.Status == uint8(cc.CtxStatusPending) {
+		//	return false
+		//}
+		//if new.BlockNum < old.BlockNum {
+		//	return false
+		//}
+		//if new.Status <= old.Status { //TODO:无法解决同步其他节点时，其他节点回滚的状态
+		//	return false
+		//}
 		return true
 	}
 
@@ -139,17 +141,17 @@ func (d *indexDB) Writes(ctxList []*cc.CrossTransactionWithSignatures, replaceab
 		var old CrossTransactionIndexed
 		err = tx.One(CtxIdIndex, ctx.ID(), &old)
 		if err == storm.ErrNotFound {
-			d.logger.Trace("add new cross transaction",
-				"id", ctx.ID().String(), "status", ctx.Status.String(), "number", ctx.BlockNum)
+			//d.logger.Trace("add new cross transaction",
+			//	"id", ctx.ID().String(), "status", ctx.Status.String(), "number", ctx.BlockNum)
 
 			if err = tx.Save(new); err != nil {
 				return err
 			}
 
 		} else if canReplace(&old, new) {
-			d.logger.Trace("replace cross transaction", "id", ctx.ID().String(),
-				"old_status", cc.CtxStatus(old.Status).String(), "new_status", ctx.Status.String(),
-				"old_height", old.BlockNum, "new_height", ctx.BlockNum)
+			//d.logger.Trace("replace cross transaction", "id", ctx.ID().String(),
+			//	"old_status", cc.CtxStatus(old.Status).String(), "new_status", ctx.Status.String(),
+			//	"old_height", old.BlockNum, "new_height", ctx.BlockNum)
 
 			new.PK = old.PK
 			if err = tx.Update(new); err != nil {
@@ -157,9 +159,9 @@ func (d *indexDB) Writes(ctxList []*cc.CrossTransactionWithSignatures, replaceab
 			}
 
 		} else {
-			d.logger.Trace("can't add or replace cross transaction", "id", ctx.ID().String(),
-				"old_status", cc.CtxStatus(old.Status).String(), "new_status", ctx.Status.String(),
-				"old_height", old.BlockNum, "new_height", ctx.BlockNum, "replaceable", replaceable)
+			//d.logger.Trace("can't add or replace cross transaction", "id", ctx.ID().String(),
+			//	"old_status", cc.CtxStatus(old.Status).String(), "new_status", ctx.Status.String(),
+			//	"old_height", old.BlockNum, "new_height", ctx.BlockNum, "replaceable", replaceable)
 
 			continue
 		}
@@ -173,7 +175,7 @@ func (d *indexDB) Writes(ctxList []*cc.CrossTransactionWithSignatures, replaceab
 	return tx.Commit()
 }
 
-func (d *indexDB) Read(ctxId common.Hash) (*cc.CrossTransactionWithSignatures, error) {
+func (d *IndexDB) Read(ctxId common.Hash) (*core.CrossTransaction, error) {
 	ctx, err := d.get(ctxId)
 	if err != nil {
 		return nil, err
@@ -181,7 +183,7 @@ func (d *indexDB) Read(ctxId common.Hash) (*cc.CrossTransactionWithSignatures, e
 	return ctx.ToCrossTransaction(), nil
 }
 
-func (d *indexDB) One(field FieldName, key interface{}) *cc.CrossTransactionWithSignatures {
+func (d *IndexDB) One(field FieldName, key interface{}) *core.CrossTransaction {
 	if d.cache != nil {
 		ctx := d.cache.Get(field, key)
 		if ctx != nil {
@@ -198,7 +200,7 @@ func (d *indexDB) One(field FieldName, key interface{}) *cc.CrossTransactionWith
 	return ctx.ToCrossTransaction()
 }
 
-func (d *indexDB) get(ctxId common.Hash) (*CrossTransactionIndexed, error) {
+func (d *IndexDB) get(ctxId common.Hash) (*CrossTransactionIndexed, error) {
 	if d.cache != nil {
 		ctx := d.cache.Get(CtxIdIndex, ctxId)
 		if ctx != nil {
@@ -218,11 +220,11 @@ func (d *indexDB) get(ctxId common.Hash) (*CrossTransactionIndexed, error) {
 	return &ctx, nil
 }
 
-func (d *indexDB) Update(id common.Hash, updater func(ctx *CrossTransactionIndexed)) error {
+func (d *IndexDB) Update(id common.Hash, updater func(ctx *CrossTransactionIndexed)) error {
 	return d.Updates([]common.Hash{id}, []func(ctx *CrossTransactionIndexed){updater})
 }
 
-func (d *indexDB) Updates(idList []common.Hash, updaters []func(ctx *CrossTransactionIndexed)) (err error) {
+func (d *IndexDB) Updates(idList []common.Hash, updaters []func(ctx *CrossTransactionIndexed)) (err error) {
 	if len(idList) != len(updaters) {
 		return ErrCtxDbFailure{err: errors.New("invalid updates params")}
 	}
@@ -249,7 +251,7 @@ func (d *indexDB) Updates(idList []common.Hash, updaters []func(ctx *CrossTransa
 	return tx.Commit()
 }
 
-func (d *indexDB) Deletes(idList []common.Hash) (err error) {
+func (d *IndexDB) Deletes(idList []common.Hash) (err error) {
 	tx, err := d.db.Begin(true)
 	if err != nil {
 		return ErrCtxDbFailure{"begin transaction failed", err}
@@ -272,12 +274,12 @@ func (d *indexDB) Deletes(idList []common.Hash) (err error) {
 	return tx.Commit()
 }
 
-func (d *indexDB) Has(id common.Hash) bool {
+func (d *IndexDB) Has(id common.Hash) bool {
 	_, err := d.get(id)
 	return err == nil
 }
 
-func (d *indexDB) Query(pageSize int, startPage int, orderBy []FieldName, reverse bool, filter ...q.Matcher) []*cc.CrossTransactionWithSignatures {
+func (d *IndexDB) Query(pageSize int, startPage int, orderBy []FieldName, reverse bool, filter ...q.Matcher) []*core.CrossTransaction {
 	if pageSize > 0 && startPage <= 0 {
 		return nil
 	}
@@ -294,39 +296,39 @@ func (d *indexDB) Query(pageSize int, startPage int, orderBy []FieldName, revers
 	}
 	query.Find(&ctxs)
 
-	results := make([]*cc.CrossTransactionWithSignatures, len(ctxs))
+	results := make([]*core.CrossTransaction, len(ctxs))
 	for i, ctx := range ctxs {
 		results[i] = ctx.ToCrossTransaction()
 	}
 	return results
 }
 
-func (d *indexDB) RangeByNumber(begin, end uint64, limit int) []*cc.CrossTransactionWithSignatures {
-	var (
-		ctxs    []*CrossTransactionIndexed
-		options []func(*index.Options)
-	)
-	if limit > 0 {
-		options = append(options, storm.Limit(limit))
-	}
-	d.db.Range(BlockNumField, begin, end, &ctxs, options...)
-	if ctxs == nil {
-		return nil
-	}
-	//把最后一笔ctx所在高度的所有ctx取出来
-	var lasts []*CrossTransactionIndexed
-	d.db.Find(BlockNumField, ctxs[len(ctxs)-1].BlockNum, &lasts)
-	for i, tx := range ctxs {
-		if tx.BlockNum == ctxs[len(ctxs)-1].BlockNum {
-			ctxs = ctxs[:i]
-			break
-		}
-	}
-	ctxs = append(ctxs, lasts...)
-
-	results := make([]*cc.CrossTransactionWithSignatures, len(ctxs))
-	for i, ctx := range ctxs {
-		results[i] = ctx.ToCrossTransaction()
-	}
-	return results
-}
+//func (d *IndexDB) RangeByNumber(begin, end uint64, limit int) []*cc.CrossTransactionWithSignatures {
+//	var (
+//		ctxs    []*CrossTransactionIndexed
+//		options []func(*index.Options)
+//	)
+//	if limit > 0 {
+//		options = append(options, storm.Limit(limit))
+//	}
+//	d.db.Range(BlockNumField, begin, end, &ctxs, options...)
+//	if ctxs == nil {
+//		return nil
+//	}
+//	//把最后一笔ctx所在高度的所有ctx取出来
+//	var lasts []*CrossTransactionIndexed
+//	d.db.Find(BlockNumField, ctxs[len(ctxs)-1].BlockNum, &lasts)
+//	for i, tx := range ctxs {
+//		if tx.BlockNum == ctxs[len(ctxs)-1].BlockNum {
+//			ctxs = ctxs[:i]
+//			break
+//		}
+//	}
+//	ctxs = append(ctxs, lasts...)
+//
+//	results := make([]*cc.CrossTransactionWithSignatures, len(ctxs))
+//	for i, ctx := range ctxs {
+//		results[i] = ctx.ToCrossTransaction()
+//	}
+//	return results
+//}
