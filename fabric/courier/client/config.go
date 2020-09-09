@@ -55,7 +55,7 @@ func InitConfig(fabric repo.Fabric) *Config {
 		utils.Fatalf("[courier.Config] err: %v", err)
 	}
 
-	cnfg := config.FromRaw(utils.ReplacePathInFile(fabric.ConfigPath), "yaml")
+	cnfg := config.FromFile(fabric.ConfigPath)
 
 	cfg := &Config{
 		ConfigProvider: cnfg,
