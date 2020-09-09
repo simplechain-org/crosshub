@@ -1,10 +1,11 @@
 package courier
 
 import (
-	"encoding/json"
 	"errors"
+	"math/big"
 	"sync"
 
+	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
 	"github.com/simplechain-org/crosshub/fabric/courier/contractlib"
 	"github.com/simplechain-org/crosshub/fabric/courier/utils"
@@ -12,46 +13,9 @@ import (
 
 	"github.com/asdine/storm/v3"
 	"github.com/asdine/storm/v3/q"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/simplechain-org/go-simplechain/crypto"
+	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
 )
-
-type CrossTx struct {
-	contractlib.Contract
-	PK          int64                `storm:"id,increment"`
-	CrossID     string               `storm:"unique"`
-	TxID        string               `storm:"index"`
-	BlockNumber uint64               `storm:"index"`
-	TimeStamp   *timestamp.Timestamp `storm:"index"`
-}
-
-func (c *CrossTx) UnmarshalJSON(bytes []byte) (err error) {
-	var errList []error
-
-	var objMap map[string]*json.RawMessage
-	errList = append(errList, json.Unmarshal(bytes, &objMap))
-	errList = append(errList, json.Unmarshal(*objMap["PK"], &c.PK))
-	errList = append(errList, json.Unmarshal(*objMap["CrossID"], &c.CrossID))
-	errList = append(errList, json.Unmarshal(*objMap["TxID"], &c.TxID))
-	errList = append(errList, json.Unmarshal(*objMap["BlockNumber"], &c.BlockNumber))
-	errList = append(errList, json.Unmarshal(*objMap["TimeStamp"], &c.TimeStamp))
-
-	c.IContract, err = contractlib.RebuildIContract(*objMap["IContract"])
-	errList = append(errList, err)
-
-	for _, err := range errList {
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-type CrossTxReceipt struct {
-	CrossID  string
-	Receipt  string
-	Sequence int64
-}
 
 type Prqueue struct {
 	prq     *prque.Prque
@@ -69,6 +33,8 @@ type TxManager struct {
 
 	pending  Prqueue
 	executed Prqueue
+
+	privateKey *ecdsa.PrivateKey
 }
 
 func NewTxManager(fabCli client.FabricClient, outCli client.OutChainClient, db DB) *TxManager {
@@ -169,14 +135,20 @@ func (t *TxManager) ProcessCrossTxs() {
 			updaters := make([]func(c *CrossTx), 0)
 
 			for _, tx := range pending {
-				raw, err := json.Marshal(tx)
-				if err != nil {
-					utils.Logger.Error("[courier.TxManager] marshal tx", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
+				ctx := toCrossHubTx(tx)
+				if ctx == nil {
 					continue
 				}
 
-				// TODO: batch send, MaxBatchSize = 64
-				if err := t.oClient.Send(raw); err != nil {
+				//sign
+				signed, err := t.signCtx(ctx)
+				if err != nil {
+					utils.Logger.Error("[courier.TxManager] signed ctx", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
+					t.pending.prq.Push(tx, -tx.TimeStamp.Seconds)
+					continue
+				}
+
+				if err := t.oClient.Send(signed); err != nil {
 					utils.Logger.Error("[courier.TxManager] send tx to OutChain", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
 					t.pending.prq.Push(tx, -tx.TimeStamp.Seconds)
 					continue
@@ -277,4 +249,10 @@ func (t *TxManager) ProcessCrossTxReceipts() {
 			return
 		}
 	}
+}
+
+func (t *TxManager) signCtx(ctx *core.CrossTransaction) (*core.CrossTransaction, error) {
+	return core.SignCtx(ctx, core.MakeCtxSigner(big.NewInt(11)), func(hash []byte) ([]byte, error) {
+		return crypto.Sign(hash, t.privateKey.K)
+	})
 }

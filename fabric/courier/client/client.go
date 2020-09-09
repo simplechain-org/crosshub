@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/fabric/courier/utils"
 
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -24,7 +25,7 @@ type FClient struct {
 }
 
 type OutChainClient interface {
-	Send([]byte) error
+	Send(*core.CrossTransaction) error
 	Close()
 }
 
@@ -32,7 +33,7 @@ type MockOutChainClient struct {
 	count uint32
 }
 
-func (mc *MockOutChainClient) Send([]byte) error {
+func (mc *MockOutChainClient) Send(t *core.CrossTransaction) error {
 	mc.count++
 	utils.Logger.Info("send to OutChain", "count", mc.count)
 	return nil

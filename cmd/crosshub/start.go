@@ -5,10 +5,10 @@ import (
 	"github.com/simplechain-org/crosshub/chainview"
 	"github.com/simplechain-org/crosshub/fabric/courier"
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
-
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/simplechain-org/crosshub/swarm"
 
+	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
 	"github.com/simplechain-org/go-simplechain/log"
 	"github.com/urfave/cli"
 )
@@ -38,34 +38,40 @@ func start(ctx *cli.Context) error {
 
 	//eventCh := make(chan *core.CrossTransaction, 4096)
 	//rtxCh  := make(chan *core.ReceptTransaction,4096)
-	eventCh := make(chan interface{},4096)
-	messageCh := make(chan interface{},4096)
-	if s, err := swarm.New(repo, messageCh,eventCh); err != nil {
+	eventCh := make(chan interface{}, 4096)
+	messageCh := make(chan interface{}, 4096)
+	s, err := swarm.New(repo, messageCh, eventCh)
+	if err != nil {
 		log.Error("swarm.New", "err", err)
 		return err
-	} else {
-		if err := s.Start(); err != nil {
+	}
+
+	if err := s.Start(); err != nil {
+		log.Error("s.Start", "err", err)
+		return err
+	}
+
+	switch repo.Config.Role {
+	case 1:
+		v, err := chainview.New(repo, eventCh, messageCh)
+		if err != nil {
+			log.Error("chainview.New", "err", err)
+			return err
+		}
+
+		if err := v.Start(); err != nil {
 			log.Error("s.Start", "err", err)
 			return err
 		}
-	}
-
-	if repo.Config.Role == 1 {
-		if v, err := chainview.New(repo,eventCh,messageCh); err != nil {
-			log.Error("chainview.New", "err", err)
-			return err
-		} else {
-			if err := v.Start(); err != nil {
-				log.Error("s.Start", "err", err)
-				return err
-			}
-		}
-	} else {
-		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric))
+	default:
+		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric), courier.CrossChannel(eventCh))
 		if err != nil {
 			log.Error("[courier.Handler] new handler", "err", err)
 			return err
 		}
+
+		// set private key
+		courierHandler.SetPrivateKey(repo.Key.PrivKey.(*ecdsa.PrivateKey))
 
 		courierHandler.Start()
 		defer courierHandler.Stop()

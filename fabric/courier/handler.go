@@ -6,6 +6,7 @@ import (
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
 
 	"github.com/asdine/storm/v3"
+	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
 )
 
 type Handler struct {
@@ -18,7 +19,7 @@ type Handler struct {
 	stopCh chan struct{}
 }
 
-func New(cfg *client.Config) (*Handler, error) {
+func New(cfg *client.Config, ocli client.OutChainClient) (*Handler, error) {
 	fabCli := client.NewFabCli(cfg)
 
 	rootDB, err := OpenStormDB(cfg.DataDir())
@@ -31,7 +32,7 @@ func New(cfg *client.Config) (*Handler, error) {
 		return nil, err
 	}
 
-	txm := NewTxManager(fabCli, &client.MockOutChainClient{}, store)
+	txm := NewTxManager(fabCli, ocli, store)
 	h := &Handler{
 		blkSync: NewBlockSync(fabCli, txm),
 		rootDB:  rootDB,
@@ -73,4 +74,8 @@ func (h *Handler) RecvMsg(ctr CrossTxReceipt) {
 			return
 		}
 	}()
+}
+
+func (h *Handler) SetPrivateKey(key *ecdsa.PrivateKey) {
+	h.txm.privateKey = key
 }
