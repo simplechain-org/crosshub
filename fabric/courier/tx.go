@@ -2,6 +2,7 @@ package courier
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/simplechain-org/crosshub/core"
@@ -91,7 +92,14 @@ type CrossChannel struct {
 	RecvCh chan interface{}
 }
 
-func (c *CrossChannel) Send(ctx *core.CrossTransaction) error {
+func (c *CrossChannel) Send(ctx *core.CrossTransaction) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%v", r)
+			utils.Logger.Error("[courier.CrossChannel] Send ", "panic", r)
+		}
+	}()
+
 	c.SendCh <- ctx
 	utils.Logger.Debug("[courier.CrossChannel] Send ", "crossID", ctx.ID().String())
 	return nil
@@ -99,4 +107,8 @@ func (c *CrossChannel) Send(ctx *core.CrossTransaction) error {
 
 func (c *CrossChannel) Close() {
 
+}
+
+func (c *CrossChannel) Recv() <-chan interface{} {
+	return c.RecvCh
 }

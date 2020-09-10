@@ -26,6 +26,7 @@ type FClient struct {
 
 type OutChainClient interface {
 	Send(*core.CrossTransaction) error
+	Recv() <-chan interface{}
 	Close()
 }
 
@@ -36,6 +37,10 @@ type MockOutChainClient struct {
 func (mc *MockOutChainClient) Send(t *core.CrossTransaction) error {
 	mc.count++
 	utils.Logger.Info("send to OutChain", "count", mc.count)
+	return nil
+}
+
+func (mc *MockOutChainClient) Recv() <-chan interface{} {
 	return nil
 }
 

@@ -50,9 +50,10 @@ func NewTxManager(fabCli client.FabricClient, outCli client.OutChainClient, db D
 
 func (t *TxManager) Start() {
 	utils.Logger.Info("[courier.TxManager] starting")
-	t.wg.Add(2)
+	t.wg.Add(3)
 	go t.ProcessCrossTxs()
 	go t.ProcessCrossTxReceipts()
+	go t.receive()
 
 	t.reload()
 	utils.Logger.Info("[courier.TxManager] started")
@@ -175,7 +176,7 @@ func (t *TxManager) ProcessCrossTxs() {
 	}
 }
 
-func (t *TxManager) AddCrossTxReceipts(ctrs []CrossTxReceipt) error {
+func (t *TxManager) UpdateCrossTx(ctrs []CrossTxReceipt) error {
 	var updaters []func(c *CrossTx)
 	var ids []string
 
@@ -215,7 +216,7 @@ func (t *TxManager) ProcessCrossTxReceipts() {
 			}
 			t.executed.mu.Unlock()
 
-			if err := t.AddCrossTxReceipts(executed); err != nil {
+			if err := t.UpdateCrossTx(executed); err != nil {
 				if errors.Is(err, storm.ErrNotFound) {
 					utils.Logger.Info("[courier.TxManager] discard receipts", "receipts", executed)
 					break
@@ -255,4 +256,56 @@ func (t *TxManager) signCtx(ctx *core.CrossTransaction) (*core.CrossTransaction,
 	return core.SignCtx(ctx, core.MakeCtxSigner(big.NewInt(11)), func(hash []byte) ([]byte, error) {
 		return crypto.Sign(hash, t.privateKey.K)
 	})
+}
+
+func (t *TxManager) receive() {
+	t.wg.Add(1)
+
+	defer func() {
+		if r := recover(); r != nil {
+			utils.Logger.Error("[courier.CrossChannel] receive ", "panic", r)
+		}
+
+		t.wg.Done()
+		utils.Logger.Info("[courier.TxManager] receive stopped")
+	}()
+
+	utils.Logger.Info("[courier.TxManager] receive started")
+
+	for {
+		select {
+		case recv := <-t.oClient.Recv():
+			utils.Logger.Debug("[courier.TxManager] receive", "receipt", recv)
+
+			r, ok := recv.(*core.ReceptTransaction)
+			if !ok {
+				break
+			}
+
+			t.AddCrossTxReceipt(CrossTxReceipt{
+				CrossID: r.ID().String()[2:], // ignore '0x' prefix
+				Receipt: r.Data.TxHash.String()[2:],
+			})
+
+		case <-t.stopCh:
+			return
+		}
+	}
+}
+
+func (t *TxManager) AddCrossTxReceipt(ctr CrossTxReceipt) {
+	t.wg.Add(1)
+	go func() {
+		defer t.wg.Done()
+
+		t.executed.mu.Lock()
+		t.executed.prq.Push(ctr, -ctr.Sequence)
+		t.executed.mu.Unlock()
+
+		select {
+		case t.executed.process <- struct{}{}:
+		case <-t.stopCh:
+			return
+		}
+	}()
 }
