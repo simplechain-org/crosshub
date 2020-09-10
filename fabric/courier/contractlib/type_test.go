@@ -92,6 +92,6 @@ func TestIncRebuildIContract(t *testing.T) {
 	}
 
 	if t2.Name != t1.Name {
-
+		t.Error(err)
 	}
 }

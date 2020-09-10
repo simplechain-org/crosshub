@@ -2,19 +2,19 @@ package courier
 
 import (
 	"encoding/json"
-	"github.com/simplechain-org/crosshub/fabric/courier/utils"
-	"github.com/simplechain-org/go-simplechain/common"
 	"math/big"
 
 	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/fabric/courier/contractlib"
+	"github.com/simplechain-org/crosshub/fabric/courier/utils"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/simplechain-org/go-simplechain/common"
 )
 
 const (
-	Fabric      uint8 = 2
-	SimpleChain uint8 = 5
+	SimpleChain uint8 = 2
+	Fabric      uint8 = 5
 )
 
 type CrossTx struct {
@@ -66,11 +66,15 @@ func toCrossHubTx(tx *CrossTx) *core.CrossTransaction {
 		return nil
 	}
 
-	val, ok := new(big.Int).SetString(pre.Value, 10)
+	charge, ok := new(big.Int).SetString(pre.Value, 10)
+	if !ok {
+		charge = new(big.Int)
+	}
+
+	val, ok := new(big.Int).SetString(pre.Args[2], 10)
 	if !ok {
 		val = new(big.Int)
 	}
-	charge := new(big.Int)
 
 	ctxID := common.HexToHash(tx.CrossID)
 	txID := common.HexToHash(tx.TxID)
@@ -82,14 +86,17 @@ func toCrossHubTx(tx *CrossTx) *core.CrossTransaction {
 	return core.NewCrossTransaction(val, charge, from, to, Fabric, SimpleChain, ctxID, txID, blkHash, payload)
 }
 
-type CrossChannel chan interface{}
+type CrossChannel struct {
+	SendCh chan interface{}
+	RecvCh chan interface{}
+}
 
-func (c CrossChannel) Send(ctx *core.CrossTransaction) error {
-	c <- ctx
+func (c *CrossChannel) Send(ctx *core.CrossTransaction) error {
+	c.SendCh <- ctx
 	utils.Logger.Debug("[courier.CrossChannel] Send ", "crossID", ctx.ID().String())
 	return nil
 }
 
-func (c CrossChannel) Close() {
+func (c *CrossChannel) Close() {
 
 }

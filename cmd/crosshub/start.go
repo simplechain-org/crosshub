@@ -64,7 +64,11 @@ func start(ctx *cli.Context) error {
 			return err
 		}
 	default:
-		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric), courier.CrossChannel(eventCh))
+		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric), &courier.CrossChannel{
+			eventCh,
+			messageCh,
+		})
+
 		if err != nil {
 			log.Error("[courier.Handler] new handler", "err", err)
 			return err
