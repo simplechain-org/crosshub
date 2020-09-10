@@ -44,7 +44,9 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 			data.Decode(&ev)
 			swarm.messageCh <- &ev
 		case RtxSignMsg:
-			//TODO makeFinish
+			var er core.ReceptTransaction
+			data.Decode(&er)
+			swarm.messageCh <- &er
 		default:
 			log.Info("can't handle msg","code",data.Code)
 			return nil
