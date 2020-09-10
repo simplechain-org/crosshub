@@ -26,6 +26,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.6.1
 	github.com/meshplus/bitxhub-kit v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/modern-go/reflect2 v1.0.1
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 	github.com/pborman/uuid v1.2.0 // indirect

@@ -138,8 +138,8 @@ func (s EIP155RtxSigner) Hash(tx *ReceptTransaction) (h common.Hash) {
 	var b []byte
 	b = append(b, tx.Data.CTxId.Bytes()...)
 	b = append(b, tx.Data.TxHash.Bytes()...)
-	b = append(b, tx.Data.From.Bytes()...)
-	b = append(b, tx.Data.To.Bytes()...)
+	b = append(b, tx.Data.From...)
+	b = append(b, tx.Data.To...)
 	b = append(b, tx.Data.Taker...)
 	b = append(b, tx.Data.Purpose)
 	b = append(b, tx.Data.Payload...)

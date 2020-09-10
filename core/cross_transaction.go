@@ -139,6 +139,25 @@ func (tx *CrossTransaction) Hash() (h common.Hash) {
 	return h
 }
 
+func (tx *CrossTransaction) SimpleHash() (h common.Hash) {
+	hash := sha3.NewKeccak256()
+	var b []byte
+
+	b = append(b, tx.Data.CTxId.Bytes()...)
+	b = append(b, tx.Data.TxHash.Bytes()...)
+	b = append(b, tx.Data.BlockHash.Bytes()...)
+	b = append(b, common.LeftPadBytes(tx.Data.Value.Bytes(), 32)...)
+	b = append(b, common.LeftPadBytes(tx.Data.Charge.Bytes(), 32)...)
+	b = append(b, common.HexToAddress(tx.Data.From).Bytes()...)
+	b = append(b, common.HexToAddress(tx.Data.To).Bytes()...)
+	b = append(b, tx.Data.Origin)
+	b = append(b, tx.Data.Purpose)
+	b = append(b, tx.Data.Payload...)
+	hash.Write(b)
+	hash.Sum(h[:0])
+	return h
+}
+
 func (tx *CrossTransaction) BlockHash() common.Hash {
 	return tx.Data.BlockHash
 }

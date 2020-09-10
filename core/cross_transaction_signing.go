@@ -87,6 +87,8 @@ type CtxSigner interface {
 	Hash(tx *CrossTransaction) common.Hash
 	// Equal returns true if the given signer is the same as the receiver.
 	Equal(CtxSigner) bool
+
+	SimpleHash(tx *CrossTransaction) common.Hash
 }
 
 // EIP155Transaction implements Signer using the EIP155 rules.
@@ -151,5 +153,32 @@ func (s EIP155CtxSigner) Hash(tx *CrossTransaction) (h common.Hash) {
 	hash.Write(b)
 	hash.Sum(h[:0])
 	return h
+}
+
+func (s EIP155CtxSigner)SimpleHash(tx *CrossTransaction) (h common.Hash) {
+	hash := sha3.NewKeccak256()
+	var b []byte
+	b = append(b, tx.Data.CTxId.Bytes()...)
+	b = append(b, tx.Data.TxHash.Bytes()...)
+	b = append(b, tx.Data.BlockHash.Bytes()...)
+	b = append(b, common.LeftPadBytes(tx.Data.Value.Bytes(), 32)...)
+	b = append(b, common.LeftPadBytes(tx.Data.Charge.Bytes(), 32)...)
+	b = append(b, common.HexToAddress(tx.Data.From).Bytes()...)
+	b = append(b, common.HexToAddress(tx.Data.To).Bytes()...)
+	b = append(b, tx.Data.Origin)
+	b = append(b, tx.Data.Purpose)
+	b = append(b, tx.Data.Payload...)
+	hash.Write(b)
+	hash.Sum(h[:0])
+	return h
+}
+
+func SignSimpleCtx(tx *CrossTransaction, s CtxSigner, signHash SignHash) (*CrossTransaction, error) {
+	h := s.SimpleHash(tx)
+	sig, err := signHash(h[:])
+	if err != nil {
+		return nil, err
+	}
+	return tx.WithSignature(s, sig)
 }
 
