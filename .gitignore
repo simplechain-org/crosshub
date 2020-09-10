@@ -1,1 +1,4 @@
 .idea
+./cmd/crosshub/crosshub
+./cmd/crosshub/nodes/node2/courier_data
+./cmd/crosshub/nodes/node2/org1sdk-config.yaml
