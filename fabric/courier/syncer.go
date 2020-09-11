@@ -30,7 +30,10 @@ type BlockSync struct {
 }
 
 func NewBlockSync(c client.FabricClient, txm *TxManager) *BlockSync {
-	startNum := txm.Get("number")
+	var startNum uint64
+
+	txm.Get("config", "number", &startNum)
+
 	if startNum == 0 {
 		// skip genesis
 		startNum = 1
@@ -103,7 +106,7 @@ func (s *BlockSync) syncBlock() {
 		select {
 		case <-blockTimer.C:
 			utils.Logger.Debug("[courier.BlockSync] sync block", "blockNumber", s.blockNum)
-			if err := s.txm.Set("number", s.blockNum); err != nil {
+			if err := s.txm.Set("config", "number", s.blockNum); err != nil {
 				apply(err)
 				break
 			}

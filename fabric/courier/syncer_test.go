@@ -111,13 +111,14 @@ func (d *MockDB) One(fieldName string, value interface{}) *CrossTx {
 	return nil
 }
 
-func (d *MockDB) Set(key string, value uint64) error {
-	d.db[key] = value
+func (d *MockDB) Set(bucketName string, key interface{}, value interface{}) error {
+	d.db[key.(string)] = value.(uint64)
 	return nil
 }
 
-func (d *MockDB) Get(key string) uint64 {
-	return d.db[key]
+func (d *MockDB) Get(bucketName string, key interface{}, to interface{}) {
+	val := to.(*uint64)
+	*val = d.db[key.(string)]
 }
 
 func (d *MockDB) Query(pageSize int, startPage int, orderBy []FieldName, reverse bool, filter ...q.Matcher) []*CrossTx {

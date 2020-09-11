@@ -20,6 +20,8 @@ const (
 	Finished
 	// Completed is the fabric commit contract transaction status flag, change by courier
 	Completed
+	// OutOnceCompleted is the fabric commit contract transaction status flag, change by chaincode, handle once outchain request
+	OutOnceCompleted
 )
 
 func (c CStatus) String() string {
@@ -34,8 +36,10 @@ func (c CStatus) String() string {
 		return "Finished"
 	case Completed:
 		return "Completed"
+	case OutOnceCompleted:
+		return "OutOnceCompleted"
 	default:
-		return "UnSupport"
+		return "UnSupported"
 	}
 }
 
@@ -51,6 +55,8 @@ func ParseCStatus(c string) (CStatus, error) {
 		return Finished, nil
 	case "Completed":
 		return Completed, nil
+	case "OutOnceCompleted":
+		return OutOnceCompleted, nil
 	}
 
 	var status CStatus
@@ -112,11 +118,12 @@ func RebuildIContract(bytes json.RawMessage) (c IContract, err error) {
 		err = json.Unmarshal(bytes, &pc)
 		c = &pc
 	case "Finished":
+	case "OutOnceCompleted":
 		var cc CommitContract
 		err = json.Unmarshal(bytes, &cc)
 		c = &cc
 	default:
-		return nil, fmt.Errorf("unsupport contract type: %s", typ)
+		return nil, fmt.Errorf("unsupported contract type: %s", typ)
 	}
 
 	return c, nil

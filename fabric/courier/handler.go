@@ -79,3 +79,7 @@ func (h *Handler) RecvMsg(ctr CrossTxReceipt) {
 func (h *Handler) SetPrivateKey(key *ecdsa.PrivateKey) {
 	h.txm.privateKey = key
 }
+
+func (h *Handler) SetOutChainFlag(flag bool) {
+	h.txm.outchain = flag
+}

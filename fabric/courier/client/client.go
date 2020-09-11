@@ -1,7 +1,6 @@
 package client
 
 import (
-	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/fabric/courier/utils"
 
 	"github.com/hyperledger/fabric-protos-go/common"
@@ -9,6 +8,8 @@ import (
 	"github.com/hyperledger/fabric-sdk-go/pkg/client/ledger"
 	"github.com/hyperledger/fabric-sdk-go/pkg/common/providers/fab"
 	"github.com/hyperledger/fabric-sdk-go/pkg/fabsdk"
+
+	simpleCommon "github.com/simplechain-org/go-simplechain/common"
 )
 
 type FClient struct {
@@ -24,8 +25,12 @@ type FClient struct {
 	packArgs func([]string) [][]byte
 }
 
+type CrossID interface {
+	ID() simpleCommon.Hash
+}
+
 type OutChainClient interface {
-	Send(*core.CrossTransaction) error
+	Send(CrossID) error
 	Recv() <-chan interface{}
 	Close()
 }
@@ -34,7 +39,7 @@ type MockOutChainClient struct {
 	count uint32
 }
 
-func (mc *MockOutChainClient) Send(t *core.CrossTransaction) error {
+func (mc *MockOutChainClient) Send(CrossID) error {
 	mc.count++
 	utils.Logger.Info("send to OutChain", "count", mc.count)
 	return nil

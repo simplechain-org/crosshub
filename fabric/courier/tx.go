@@ -3,6 +3,7 @@ package courier
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/simplechain-org/crosshub/fabric/courier/client"
 	"math/big"
 
 	"github.com/simplechain-org/crosshub/core"
@@ -16,6 +17,11 @@ import (
 const (
 	SimpleChain uint8 = 2
 	Fabric      uint8 = 5
+
+	testChainCodePrefix    = "outchain"
+	testFabricinvoke       = "invoke"
+	testFabricAccount      = "a"
+	testSimpleChainAddress = "0x992ec45ae0d2d2fcf97f4417cfd3f80505862fbc"
 )
 
 type CrossTx struct {
@@ -92,7 +98,7 @@ type CrossChannel struct {
 	RecvCh chan interface{}
 }
 
-func (c *CrossChannel) Send(ctx *core.CrossTransaction) (err error) {
+func (c *CrossChannel) Send(tx client.CrossID) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%v", r)
@@ -100,8 +106,10 @@ func (c *CrossChannel) Send(ctx *core.CrossTransaction) (err error) {
 		}
 	}()
 
-	c.SendCh <- ctx
-	utils.Logger.Debug("[courier.CrossChannel] Send ", "crossID", ctx.ID().String())
+	c.SendCh <- tx
+
+	utils.Logger.Info("[courier.CrossChannel] Send ", "crossID", tx.ID().String())
+
 	return nil
 }
 

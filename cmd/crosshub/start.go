@@ -76,6 +76,8 @@ func start(ctx *cli.Context) error {
 
 		// set private key
 		courierHandler.SetPrivateKey(repo.Key.PrivKey.(*ecdsa.PrivateKey))
+		// accept cross request from simplechain
+		courierHandler.SetOutChainFlag(true)
 
 		courierHandler.Start()
 		defer courierHandler.Stop()
