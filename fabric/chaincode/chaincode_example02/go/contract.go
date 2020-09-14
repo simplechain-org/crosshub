@@ -84,7 +84,7 @@ func (t *SimpleChaincode) outchainCommit(args []string, stub shim.ChaincodeStubI
 				Status:     OutOnceCompleted,
 				ContractID: args[0],
 			}}
-		rawCommit, err := json.Marshal(commit)
+		rawCommit, err := json.Marshal(&commit)
 		if err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (t *SimpleChaincode) regularCommit(args []string, stub shim.ChaincodeStubIn
 	}
 	preCommit.UpdateStatus(Finished)
 	preCommit.UpdateReceipt(receipt)
-	updateData, err := json.Marshal(contract)
+	updateData, err := json.Marshal(&contract)
 	if err != nil {
 		return shim.Error(err.Error())
 	}

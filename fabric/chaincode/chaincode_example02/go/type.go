@@ -118,6 +118,7 @@ func RebuildIContract(bytes json.RawMessage) (c IContract, err error) {
 		err = json.Unmarshal(bytes, &pc)
 		c = &pc
 	case "Finished":
+		fallthrough
 	case "OutOnceCompleted":
 		var cc CommitContract
 		err = json.Unmarshal(bytes, &cc)
