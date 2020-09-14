@@ -98,7 +98,7 @@ if [ "${NO_CHAINCODE}" != "true" ]; then
 
 	# Query chaincode on peer0.org1
 	echo "Querying chaincode on peer0.org1..."
-	chaincodeQuery 0 1 100
+	chaincodeQuery 0 1 100000000
 
 	# Invoke chaincode on peer0.org1 and peer0.org2
 	echo "Sending invoke transaction on peer0.org1 peer0.org2..."
@@ -110,7 +110,7 @@ if [ "${NO_CHAINCODE}" != "true" ]; then
 
 	# Query on chaincode on peer1.org2, check if the result is 90
 	echo "Querying chaincode on peer1.org2..."
-	chaincodeQuery 1 2 90
+	chaincodeQuery 1 2 99999990
 	
 fi
 
