@@ -103,7 +103,7 @@ package core
 //	b = append(b, tx.Data.Payload...)
 //	hash.Write(b)
 //	hash.Sum(h[:0])
-//	tx.hash.Store(h)
+//	tx.hash.RemoteStore(h)
 //	return h
 //}
 //

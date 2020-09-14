@@ -321,7 +321,7 @@ func (s *CTxByPrice) Pop() interface{} {
 //	b = append(b, cws.Data.Payload...)
 //	hash.Write(b)
 //	hash.Sum(h[:0])
-//	cws.hash.Store(h)
+//	cws.hash.RemoteStore(h)
 //	return h
 //}
 //
@@ -433,7 +433,7 @@ func (s *CTxByPrice) Pop() interface{} {
 //	}
 //	c := types.WriteCounter(0)
 //	rlp.Encode(&c, &cws.Data)
-//	cws.size.Store(common.StorageSize(c))
+//	cws.size.RemoteStore(common.StorageSize(c))
 //	return common.StorageSize(c)
 //}
 //

@@ -51,15 +51,13 @@ const (
 	//BlockNumField    FieldName = "BlockNum"
 )
 
-func NewIndexDB(chainID *big.Int, path string, cacheSize uint64) *IndexDB {
+func NewIndexDB(chainID *big.Int, rootDB *storm.DB, cacheSize uint64) *IndexDB {
 	dbName := "chain" + chainID.String()
 	log.Info("Open IndexDB", "dbName", dbName, "cacheSize", cacheSize)
-	rootDB,err := storm.Open(path)
-	if err != nil {
-		log.Error("NewIndexDB","err",err)
-	}
+
 	return &IndexDB{
 		chainID: chainID,
+		root:    rootDB,
 		db:      rootDB.From(dbName).WithBatch(true),
 		cache:   newIndexDbCache(int(cacheSize)),
 		logger:  log.New("name", dbName),
@@ -332,3 +330,16 @@ func (d *IndexDB) Query(pageSize int, startPage int, orderBy []FieldName, revers
 //	}
 //	return results
 //}
+
+func (d *IndexDB) Set(key string, value uint64) error {
+	return d.db.Set("config", key, value)
+}
+
+func (d *IndexDB) Get(key string) uint64 {
+	var value uint64
+	if err := d.db.Get("config", key, &value); err != nil {
+		return 0
+	}
+
+	return value
+}

@@ -7,6 +7,10 @@ import (
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/simplechain-org/crosshub/swarm"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
 	"github.com/simplechain-org/go-simplechain/log"
@@ -22,7 +26,9 @@ func startCMD() cli.Command {
 }
 
 func start(ctx *cli.Context) error {
-	ch := make(chan bool)
+	var stop = make(chan os.Signal)
+	signal.Notify(stop, syscall.SIGTERM)
+	signal.Notify(stop, syscall.SIGINT)
 	log.Info("start")
 	repoRoot, err := repo.PathRootWithDefault(ctx.GlobalString("repo"))
 	if err != nil {
@@ -50,6 +56,8 @@ func start(ctx *cli.Context) error {
 		log.Error("s.Start", "err", err)
 		return err
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 
 	switch repo.Config.Role {
 	case 1:
@@ -63,6 +71,14 @@ func start(ctx *cli.Context) error {
 			log.Error("s.Start", "err", err)
 			return err
 		}
+
+		go func() {
+			<-stop
+			fmt.Println("received interrupt signal, shutting down...")
+			v.Stop()
+			wg.Done()
+			os.Exit(0)
+		}()
 	default:
 		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric), &courier.CrossChannel{
 			eventCh,
@@ -78,12 +94,17 @@ func start(ctx *cli.Context) error {
 		courierHandler.SetPrivateKey(repo.Key.PrivKey.(*ecdsa.PrivateKey))
 
 		courierHandler.Start()
-		defer courierHandler.Stop()
+		go func() {
+			<-stop
+			fmt.Println("received interrupt signal, shutting down...")
+			courierHandler.Stop()
+			wg.Done()
+			os.Exit(0)
+		}()
 	}
 
 	log.Info("new config", "store", repo.Config.Fabric)
-
+	wg.Wait()
 	//fabricView.New(repo,eventCh)
-	<-ch
 	return nil
 }

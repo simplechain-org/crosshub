@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/asdine/storm/v3"
 	"github.com/simplechain-org/crosshub/api"
 	"github.com/simplechain-org/crosshub/core"
 	"github.com/simplechain-org/crosshub/database"
@@ -14,7 +15,6 @@ import (
 	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
 	"github.com/simplechain-org/go-simplechain/log"
 	"github.com/simplechain-org/go-simplechain/rpc"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -53,9 +53,10 @@ type Viewer struct {
 	eventCh        chan<- interface{}
 	messageCh      <-chan interface{}
 
-	PrivateKey      *ecdsa.PrivateKey
-	Store     		*database.IndexDB
-	Anchors         map[common.Address]struct{}
+	PrivateKey  *ecdsa.PrivateKey
+	RemoteStore *database.IndexDB
+	LocalStore  *database.IndexDB
+	Anchors     map[common.Address]struct{}
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -69,8 +70,13 @@ func New(repo *repo.Repo,eventCh chan<- interface{}, messageCh <-chan interface{
 		return nil, err
 	}
 
-	idb := database.NewIndexDB(big.NewInt(5),filepath.Join(os.TempDir(),DataDir),4096)
-	crossApi := api.NewPublicCrossQueryApi(idb)
+	rootDB,err := storm.Open(filepath.Join(repo.Config.DataDir,DataDir))
+	if err != nil {
+		log.Error("NewIndexDB","err",err)
+	}
+	remoteDb := database.NewIndexDB(big.NewInt(5), rootDB,4096)
+	localDb := database.NewIndexDB(big.NewInt(2), rootDB,4096)
+	crossApi := api.NewPublicCrossQueryApi(remoteDb,localDb)
 	var  queryApi api.CrossApi = crossApi
 	rpcAPI := []rpc.API{
 		{
@@ -88,31 +94,36 @@ func New(repo *repo.Repo,eventCh chan<- interface{}, messageCh <-chan interface{
 	extapiURL := fmt.Sprintf("http://%s", httpEndpoint)
 	log.Info("HTTP endpoint opened", "url", extapiURL)
 
+
+
 	return &Viewer{
-		Client: client,
-		SimpleClient: ethclient.NewClient(client),
-		Address: repo.Config.Contract,
-		currentHeight: 6000,
-		eventCh:	eventCh,
-		messageCh:  messageCh,
-		PrivateKey: repo.Key.PrivKey.(*ecdsa.PrivateKey),
-		Store: idb,
-		Anchors: make(map[common.Address]struct{}),
-		ctx: ctx,
-		cancel: cancel,
+		Client:        client,
+		SimpleClient:  ethclient.NewClient(client),
+		Address:       repo.Config.Contract,
+		//currentHeight: localDb.Get("currentHeight"),
+		currentHeight: 15000,
+		eventCh:       eventCh,
+		messageCh:     messageCh,
+		PrivateKey:    repo.Key.PrivKey.(*ecdsa.PrivateKey),
+		RemoteStore:   remoteDb,
+		LocalStore:    localDb,
+		Anchors:       make(map[common.Address]struct{}),
+		ctx:           ctx,
+		cancel:        cancel,
 	},nil
 }
 
 func (this *Viewer)Start() error {
-	this.Store.Deletes([]common.Hash{ common.HexToHash("0x147ba08a54f64f3daec1b3cbb555f88441fc2fdc9c0689d467f227b1c058ac02"),
-		common.HexToHash("0xa840a58f0ce448a62cd5df6a76446efd39d680f14b422c1673bed0a4f84224e1"),
-		common.HexToHash("0x21c34644ac1db4828ea676a327a323cf97769866d650dd7c811866e5e0d91248")})
 	this.GetAnchors()
 	go this.loop()
 	return nil
 }
 
 func (this *Viewer)Stop() error {
+	err := this.LocalStore.Set("currentHeight",this.currentHeight)
+	if err != nil {
+		log.Error("Stop","err",err)
+	}
 	this.cancel()
 	return nil
 }
@@ -147,7 +158,7 @@ func (this *Viewer)loop()  {
 						log.Info("SignCtx","err",err)
 					}
 					log.Info("anchors","ok",ok)
-					err = this.Store.Write(ctms)
+					err = this.RemoteStore.Write(ctms)
 					if err != nil {
 						log.Error("write","err",err)
 					}
@@ -185,8 +196,8 @@ func (this *Viewer)GetEvents() {
 		log.Info("CallContext","err",err)
 	}
 	var toBlock uint64
-	if this.currentHeight < result.ToInt().Uint64() - 100 {
-		toBlock = this.currentHeight + 100
+	if this.currentHeight < result.ToInt().Uint64() - 99 {
+		toBlock = this.currentHeight + 99
 	} else {
 		toBlock = result.ToInt().Uint64() - 12
 	}
@@ -203,7 +214,7 @@ func (this *Viewer)GetEvents() {
 	if len(logs) > 0 {
 		this.EventLog(logs)
 	}
-	this.currentHeight = toBlock
+	this.currentHeight = toBlock + 1
 	log.Info("GetEvents","currentHeight",this.currentHeight)
 
 }
@@ -230,21 +241,21 @@ func (this *Viewer) EventLog(logs []types.Log) {
 			if err != nil {
 				log.Info("SignCtx","err",err)
 			}
-			from,err := core.CtxSender(core.MakeCtxSigner(big.NewInt(11)),ctms)
-			if err != nil {
-				log.Info("CtxSender","err",err)
-			}
-			publicKey :=  crypto.PubkeyToAddress(this.PrivateKey.K.PublicKey)
-			if err != nil {
-				log.Info("PublicKey","err",err)
-			}
-
-			log.Info("receive ctx msg","msg",args,"ctms",ctms,"sender",from.String(),"publicKey",publicKey.String())
-			//err = this.Store.Write(ctms)
+			//from,err := core.CtxSender(core.MakeCtxSigner(big.NewInt(11)),ctms)
 			//if err != nil {
-			//	log.Error("Write","err",err)
+			//	log.Info("CtxSender","err",err)
 			//}
-			//TODO 本地端跨链交易显示
+			//publicKey :=  crypto.PubkeyToAddress(this.PrivateKey.K.PublicKey)
+			//if err != nil {
+			//	log.Info("PublicKey","err",err)
+			//}
+
+
+			log.Info("receive ctx msg","msg",args,"ctms",ctms)
+			err = this.LocalStore.Write(ctms)
+			if err != nil {
+				log.Error("Write","err",err)
+			}
 			this.eventCh <- ctms
 		case takerTx:
 			var args CrossTakerTx
@@ -260,6 +271,10 @@ func (this *Viewer) EventLog(logs []types.Log) {
 			if err != nil {
 				log.Info("SignRtx","err",err)
 			}
+			err = this.RemoteStore.Deletes([]common.Hash{rtms.ID()})
+			if err != nil {
+				log.Info("Deletes","err",err)
+			}
 			log.Info("takerTx","msg",rtms)
 			this.eventCh <- rtms
 			//TODO rtx and handle
@@ -273,10 +288,10 @@ func (this *Viewer) EventLog(logs []types.Log) {
 			log.Info("receive finish msg","Id",hexutil.Encode(args.TxId[:]))
 
 			//TODO delete localstore
-			//err = this.Store.Deletes([]common.Hash{args.TxId})
-			//if err != nil {
-			//	log.Error("Deletes","Id",hexutil.Encode(args.TxId[:]))
-			//}
+			err = this.LocalStore.Deletes([]common.Hash{args.TxId})
+			if err != nil {
+				log.Error("Deletes","Id",hexutil.Encode(args.TxId[:]))
+			}
 		}
 	}
 }
@@ -355,12 +370,6 @@ func (this *Viewer)GetAnchors() {
 			}
 		}
 	}
-}
-
-type TranParam struct {
-	gasLimit uint64
-	gasPrice *big.Int
-	data     []byte
 }
 
 func (this *Viewer)createTransaction(rtm *core.ReceptTransaction) (*types.Transaction, error) {

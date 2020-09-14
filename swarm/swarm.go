@@ -76,6 +76,7 @@ func (swarm *Swarm) Start() error {
 			log.Info("try connet","id",id,"addr",addr.String())
 			if err := retry.Retry(func(attempt uint) error {
 				if err := swarm.p2p.Connect(addr); err != nil {
+					//log.Info("Connect","err",err)
 					return err
 				}
 
@@ -83,6 +84,7 @@ func (swarm *Swarm) Start() error {
 					if attempt != 0 && attempt%5 == 0 {
 						log.Error("Verify cert","err",err)
 					}
+					log.Info("verifyCert","err",err)
 					return err
 				}
 

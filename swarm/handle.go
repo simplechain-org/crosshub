@@ -34,7 +34,7 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 				log.Info("ParseCert","err",err)
 				return fmt.Errorf("verify certs: %w", err)
 			}
-			//TODO 网络拓展 swarm.connectedPeers.Store(certs.Id,addr)
+			//TODO 网络拓展 swarm.connectedPeers.RemoteStore(certs.Id,addr)
 			return swarm.handleFetchCertMessage(s)
 		case CertMsg:
 

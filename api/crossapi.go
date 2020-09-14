@@ -66,15 +66,16 @@ type CrossApi interface {
 }
 
 type CrossQueryApi struct {
-	db *db.IndexDB
+	remoteDb *db.IndexDB
+	localDb  *db.IndexDB
 }
 
-func NewPublicCrossQueryApi(db *db.IndexDB) *CrossQueryApi {
-	return &CrossQueryApi{db: db}
+func NewPublicCrossQueryApi(db,idb *db.IndexDB) *CrossQueryApi {
+	return &CrossQueryApi{remoteDb: db,localDb: idb}
 }
 
 func (s *CrossQueryApi) CtxContentByPage(localSize, localPage, remoteSize, remotePage int) map[string]RPCPageCrossTransactions {
-	locals, remotes := QueryByPage(s.db,localSize, localPage, remoteSize, remotePage)
+	locals, remotes := s.QueryByPage(localSize, localPage, remoteSize, remotePage)
 	content := map[string]RPCPageCrossTransactions{
 		"local": {
 			Data: make(map[uint8][]*RPCCrossTransaction),

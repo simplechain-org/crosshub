@@ -5,10 +5,10 @@ import (
 	db "github.com/simplechain-org/crosshub/database"
 )
 
-func QueryByPage(idb *db.IndexDB,localSize, localPage, remoteSize, remotePage int) (
+func (s *CrossQueryApi)QueryByPage(localSize, localPage, remoteSize, remotePage int) (
 	locals map[uint8][]*core.CrossTransaction, remotes map[uint8][]*core.CrossTransaction) {
 	orderBy := []db.FieldName{db.PriceIndex}
-	locals = map[uint8][]*core.CrossTransaction{2:nil}
-	remotes = map[uint8][]*core.CrossTransaction{5:idb.Query(localSize,localPage,orderBy,false)}
+	locals = map[uint8][]*core.CrossTransaction{2:s.localDb.Query(localSize,localPage,orderBy,false)}
+	remotes = map[uint8][]*core.CrossTransaction{5:s.remoteDb.Query(localSize,localPage,orderBy,false)}
 	return
 }
