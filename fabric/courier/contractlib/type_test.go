@@ -95,3 +95,47 @@ func TestIncRebuildIContract(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestParseCStatus(t *testing.T) {
+	var contracts = []Contract{
+		Contract{
+			&PrecommitContract{
+				Status:     Init,
+				ContractID: "d2a6e261c941bb065b17ec09f8d8c5f16c08546b35420cfac4d9b324efb6d675",
+			},
+		},
+		Contract{
+			&CommitContract{
+				Status:     Finished,
+				ContractID: "d2a6e261c941bb065b17ec09f8d8c5f16c08546b35420cfac4d9b324efb6d675",
+			},
+		},
+		Contract{
+			&CommitContract{
+				Status:     OutOnceCompleted,
+				ContractID: "d2a6e261c941bb065b17ec09f8d8c5f16c08546b35420cfac4d9b324efb6d675",
+			},
+		},
+	}
+
+	for _, c := range contracts {
+		rawContract, err := json.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var cc = Contract{}
+		err = json.Unmarshal(rawContract, &cc)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if cc.GetContractID() != c.GetContractID() {
+			t.Fatalf("want: %s, got: %s", c.GetContractID(), cc.GetContractID())
+		}
+
+		if cc.GetStatus() != c.GetStatus() {
+			t.Fatalf("want: %s, got: %s", c.GetStatus(), cc.GetStatus())
+		}
+	}
+}
