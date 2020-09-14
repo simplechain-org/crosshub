@@ -31,3 +31,4 @@ rpcport = "8545"
   configpath = "./nodes/node2/org1sdk-config.yaml"
   events = "precommit,commit"
   datadir = "./nodes/node2/courier_data"
+  outchain = true
