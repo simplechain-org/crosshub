@@ -105,10 +105,10 @@ func (t *TxManager) AddCrossTxs(txs []*CrossTx) error {
 
 	t.pending.mu.Lock()
 	for _, tx := range txs {
-		switch tx.Contract.GetStatus() {
-		case contractlib.Finished:
+		switch {
+		case tx.Contract.IsFinished():
 			storeTxs = append(storeTxs, tx)
-		case contractlib.OutOnceCompleted:
+		case tx.Contract.IsOutOnceCompleted():
 			outTxs = append(outTxs, tx)
 		default:
 			storeTxs = append(storeTxs, tx)

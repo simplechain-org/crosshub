@@ -136,6 +136,12 @@ type IContract interface {
 	GetStatus() CStatus
 	GetCoreInfo() *ContractCore
 	UpdateStatus(CStatus)
+	IsInit() bool
+	IsPending() bool
+	IsExecuted() bool
+	IsFinished() bool
+	IsCompleted() bool
+	IsOutOnceCompleted() bool
 }
 
 type ContractCore struct {
@@ -191,6 +197,30 @@ func (c *PrecommitContract) UpdateReceipt(receipt string) {
 	c.Receipt = receipt
 }
 
+func (c *PrecommitContract) IsInit() bool {
+	return c.Status == Init
+}
+
+func (c *PrecommitContract) IsPending() bool {
+	return c.Status == Pending
+}
+
+func (c *PrecommitContract) IsExecuted() bool {
+	return c.Status == Executed
+}
+
+func (c *PrecommitContract) IsFinished() bool {
+	return c.Status == Finished
+}
+
+func (c *PrecommitContract) IsCompleted() bool {
+	return c.Status == Completed
+}
+
+func (c *PrecommitContract) IsOutOnceCompleted() bool {
+	return c.Status == OutOnceCompleted
+}
+
 type CommitContract struct {
 	Status     CStatus `json:"status" storm:"index"`
 	ContractID string  `json:"contract_id"`
@@ -210,4 +240,28 @@ func (c *CommitContract) UpdateStatus(s CStatus) {
 
 func (c *CommitContract) GetCoreInfo() *ContractCore {
 	return nil
+}
+
+func (c *CommitContract) IsInit() bool {
+	return c.Status == Init
+}
+
+func (c *CommitContract) IsPending() bool {
+	return c.Status == Pending
+}
+
+func (c *CommitContract) IsExecuted() bool {
+	return c.Status == Executed
+}
+
+func (c *CommitContract) IsFinished() bool {
+	return c.Status == Finished
+}
+
+func (c *CommitContract) IsCompleted() bool {
+	return c.Status == Completed
+}
+
+func (c *CommitContract) IsOutOnceCompleted() bool {
+	return c.Status == OutOnceCompleted
 }

@@ -80,7 +80,7 @@ func (s *Store) Save(txList []*CrossTx) error {
 			}
 		} else if oldTx.IContract == nil {
 			utils.Logger.Warn("[courier.Store] parse old crossTx failed", "crossID", oldTx.CrossID)
-		} else if newTx.GetStatus() == contractlib.Finished {
+		} else if newTx.IsFinished() {
 			utils.Logger.Debug("[courier.Store] receive Finished crossTx ", "crossID", newTx.CrossID, "txId", newTx.TxID)
 			// update old status, discard new
 			oldTx.UpdateStatus(contractlib.Completed)
