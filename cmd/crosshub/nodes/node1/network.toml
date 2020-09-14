@@ -1,6 +1,6 @@
 addrs = [
     ["/ip4/192.168.2.248/tcp/4001/p2p/QmWPDnYvbVxW4ybu2qmp3q3JwBgNPrP31bosrEke72gnPj"],
-    ["/ip4/192.168.2.178/tcp/4002/p2p/Qmet7VcBosAtPVDrDb7dyGszSLpXKqK2wGnrJF6fz1CAKk"],
+    ["/ip4/192.168.2.248/tcp/4002/p2p/Qmet7VcBosAtPVDrDb7dyGszSLpXKqK2wGnrJF6fz1CAKk"],
     ["/ip4/127.0.0.1/tcp/4003/p2p/QmTGUd1cGq3KKtDYcWRAQK9QYrru8bhHjrkrMZiPJAesDL"],
     ["/ip4/127.0.0.1/tcp/4004/p2p/QmXoKLgHzURvCDE1qReZZJ1dxcctDJ5gaSQ8VJjPhYRqb4"]
 ]

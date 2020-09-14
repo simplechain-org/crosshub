@@ -100,8 +100,8 @@ func New(repo *repo.Repo,eventCh chan<- interface{}, messageCh <-chan interface{
 		Client:        client,
 		SimpleClient:  ethclient.NewClient(client),
 		Address:       repo.Config.Contract,
-		//currentHeight: localDb.Get("currentHeight"),
-		currentHeight: 15000,
+		currentHeight: localDb.Get("currentHeight"),
+		//currentHeight: 15000,
 		eventCh:       eventCh,
 		messageCh:     messageCh,
 		PrivateKey:    repo.Key.PrivKey.(*ecdsa.PrivateKey),
@@ -115,6 +115,10 @@ func New(repo *repo.Repo,eventCh chan<- interface{}, messageCh <-chan interface{
 
 func (this *Viewer)Start() error {
 	this.GetAnchors()
+	this.RemoteStore.Deletes([]common.Hash{
+		common.HexToHash("0xa5b27e78847ffd1415c89654d8dbab8148472d452dd5ae311be54bf181b270a4"),
+		common.HexToHash("0x57b38851fb67956ce3a5420ed050a1e4eb7e70b31bd103202976b23546326f74"),
+	})
 	go this.loop()
 	return nil
 }
@@ -124,6 +128,7 @@ func (this *Viewer)Stop() error {
 	if err != nil {
 		log.Error("Stop","err",err)
 	}
+	log.Info("Stop","height",this.currentHeight)
 	this.cancel()
 	return nil
 }
@@ -172,17 +177,17 @@ func (this *Viewer)loop()  {
 					log.Info("CtxSender","err",err)
 				}
 				if _,ok := this.Anchors[from];ok {
-					if tx,err := this.createTransaction(rtm);err != nil {
-						log.Info("createTransaction","err",err)
-					} else {
-						ctx, _ := context.WithTimeout(context.Background(), time.Second*30)
-						err = this.SimpleClient.SendTransaction(ctx,tx)
-						if err != nil {
-							log.Info("SendTransaction","err",err)
-						}
+					tx,err := this.createTransaction(rtm)
+					if err != nil {
+						log.Info("createTransaction", "err", err)
+					}
+					ctx, _ := context.WithTimeout(context.Background(), time.Second*30)
+					err = this.SimpleClient.SendTransaction(ctx,tx)
+					if err != nil {
+						log.Info("SendTransaction", "err", err)
 					}
 				}
-				log.Info("rtm","rtm",rtm)
+				log.Info("rtm","id",rtm.ID().String())
 			}
 		}
 	}
@@ -199,7 +204,8 @@ func (this *Viewer)GetEvents() {
 	if this.currentHeight < result.ToInt().Uint64() - 99 {
 		toBlock = this.currentHeight + 99
 	} else {
-		toBlock = result.ToInt().Uint64() - 12
+		//toBlock = result.ToInt().Uint64() - 12
+		toBlock = result.ToInt().Uint64() - 1
 	}
 	records := simplechain.FilterQuery{
 		FromBlock: big.NewInt(int64(this.currentHeight)),
@@ -386,7 +392,7 @@ func (this *Viewer)createTransaction(rtm *core.ReceptTransaction) (*types.Transa
 		log.Info("PendingNonceAt","err",err)
 	}
 	tx := types.NewTransaction(nonce, common.HexToAddress(this.Address), big.NewInt(0), 250000, big.NewInt(1e10), data)
-	signer := types.NewEIP155Signer(big.NewInt(int64(1)))
+	signer := types.NewEIP155Signer(big.NewInt(2))
 	txHash := signer.Hash(tx)
 	signature, err := crypto.Sign(txHash.Bytes(),this.PrivateKey.K)
 	if err != nil {

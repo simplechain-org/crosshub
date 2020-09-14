@@ -380,10 +380,11 @@ func (t *TxManager) processOutChainCtxReq(req *core.CrossTransaction) {
 		"crossID", req.ID().String(), "from", req.Data.From, "to", req.Data.To, "charge", req.Data.Charge.String())
 
 	// 2. parse and send to fabric
-	_, err := t.fClient.InvokeChainCode("commit", []string{testChainCodePrefix, req.ID().String(), testFabricinvoke, req.Data.From, req.Data.To, req.Data.Charge.String()})
+	_, err := t.fClient.InvokeChainCode("commit", []string{testChainCodePrefix, req.ID().String(), testFabricinvoke, req.Data.To, req.Data.From, req.Data.Charge.String()})
 	if err != nil {
 		utils.Logger.Error("[courier.TxManager] send processOutChainCtxReq to fabric", "err", err)
 	}
+	//TODO 并发err
 }
 
 func (t *TxManager) processOutChainCtxResp(crossID string, receipt string) {

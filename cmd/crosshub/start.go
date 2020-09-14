@@ -57,11 +57,12 @@ func start(ctx *cli.Context) error {
 		log.Error("s.Start", "err", err)
 		return err
 	}
-	var wg sync.WaitGroup
-	wg.Add(1)
+
 
 	switch repo.Config.Role {
 	case 1:
+		var wg sync.WaitGroup
+		wg.Add(1)
 		v, err := chainview.New(repo, eventCh, messageCh)
 		if err != nil {
 			log.Error("chainview.New", "err", err)
@@ -80,6 +81,7 @@ func start(ctx *cli.Context) error {
 			wg.Done()
 			os.Exit(0)
 		}()
+		wg.Wait()
 	default:
 		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric), &courier.CrossChannel{
 			eventCh,
@@ -98,17 +100,12 @@ func start(ctx *cli.Context) error {
 		courierHandler.SetOutChainFlag(repo.Config.Fabric.Outchain)
 
 		courierHandler.Start()
-		go func() {
-			<-stop
-			fmt.Println("received interrupt signal, shutting down...")
-			courierHandler.Stop()
-			wg.Done()
-			os.Exit(0)
-		}()
+		defer courierHandler.Stop()
+		<- stop
+		os.Exit(0)
 	}
 
-	log.Info("new config", "store", repo.Config.Fabric)
-	wg.Wait()
+	//log.Info("new config", "store", repo.Config.Fabric)
 	//fabricView.New(repo,eventCh)
 	return nil
 }

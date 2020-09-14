@@ -110,7 +110,7 @@ func taker() {
 		return
 	}
 
-	err = client.CallContext(context.Background(), &signatures, "cross_ctxContentByPage", 10, 1, limit, 1)
+	err = client.CallContext(context.Background(), &signatures, "cross_ctxContentByPage", 1, 1, limit, 1)
 	if err != nil {
 		fmt.Println("CallContext", "err", err)
 		return

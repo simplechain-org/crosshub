@@ -52,7 +52,7 @@ func (h *Handler) Stop() {
 	h.blkSync.Stop()
 
 	close(h.stopCh)
-	h.taskWg.Wait()
+	//h.taskWg.Wait()
 
 	h.txm.Stop()
 
@@ -60,9 +60,9 @@ func (h *Handler) Stop() {
 }
 
 func (h *Handler) RecvMsg(ctr CrossTxReceipt) {
-	h.taskWg.Add(1)
+	//h.taskWg.Add(1)
 	go func() {
-		defer h.taskWg.Done()
+		//defer h.taskWg.Done()
 
 		h.txm.executed.mu.Lock()
 		h.txm.executed.prq.Push(ctr, -ctr.Sequence)
