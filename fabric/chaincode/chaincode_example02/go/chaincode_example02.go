@@ -85,8 +85,10 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		// the old "Query" is now implemtned in invoke
 		return t.query(stub, args)
 	} else if function == "precommit" {
+		// for fabric send cross transaction request
 		return t.precommit(stub, args)
 	} else if function == "commit" {
+		// receive outchain cross transaction response or request
 		return t.commit(stub, args)
 	}
 

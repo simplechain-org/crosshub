@@ -137,7 +137,7 @@ sleep $DELAY
 
 #Query on chaincode on Peer0/Org1
 echo "Querying chaincode on org1/peer0..."
-chaincodeQuery 0 1 90
+chaincodeQuery 0 1 99999990
 
 sleep $DELAY
 
@@ -149,7 +149,7 @@ sleep $DELAY
 
 #Query on chaincode on Peer0/Org1
 echo "Querying chaincode on org1/peer0..."
-chaincodeQuery 0 1 80
+chaincodeQuery 0 1 99999980
 
 echo
 echo "===================== All GOOD, End-2-End UPGRADE Scenario execution completed ===================== "

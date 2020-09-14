@@ -2,6 +2,7 @@ package courier
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -13,6 +14,7 @@ import (
 
 	"github.com/asdine/storm/v3"
 	"github.com/asdine/storm/v3/q"
+	"github.com/simplechain-org/go-simplechain/common"
 	"github.com/simplechain-org/go-simplechain/crypto"
 	"github.com/simplechain-org/go-simplechain/crypto/ecdsa"
 )
@@ -34,7 +36,10 @@ type TxManager struct {
 	pending  Prqueue
 	executed Prqueue
 
+	//p2p client private key
 	privateKey *ecdsa.PrivateKey
+	//if true, handle cross transaction from outchain, default not handle
+	outchain bool
 }
 
 func NewTxManager(fabCli client.FabricClient, outCli client.OutChainClient, db DB) *TxManager {
@@ -50,9 +55,10 @@ func NewTxManager(fabCli client.FabricClient, outCli client.OutChainClient, db D
 
 func (t *TxManager) Start() {
 	utils.Logger.Info("[courier.TxManager] starting")
-	t.wg.Add(2)
+	t.wg.Add(3)
 	go t.ProcessCrossTxs()
 	go t.ProcessCrossTxReceipts()
+	go t.receive()
 
 	t.reload()
 	utils.Logger.Info("[courier.TxManager] started")
@@ -75,7 +81,6 @@ func (t *TxManager) Stop() {
 func (t *TxManager) reload() {
 	utils.Logger.Debug("[courier.TxManager] reloading")
 	toPending := t.DB.Query(0, 0, []FieldName{TimestampField}, false, q.Eq(StatusField, contractlib.Init))
-
 	t.pending.mu.Lock()
 	for _, tx := range toPending {
 		t.pending.prq.Push(tx, -tx.TimeStamp.Seconds)
@@ -84,22 +89,45 @@ func (t *TxManager) reload() {
 
 	t.pending.process <- struct{}{}
 
+	fromExecuted := t.DB.Query(0, 0, []FieldName{TimestampField}, false, q.Eq(StatusField, contractlib.Executed))
+	t.executed.mu.Lock()
+	for _, tx := range fromExecuted {
+		t.executed.prq.Push(tx, -tx.TimeStamp.Seconds)
+	}
+	t.executed.mu.Unlock()
+
 	utils.Logger.Debug("[courier.TxManager] reload completed")
-	//TODO: executed queue
 }
 
 func (t *TxManager) AddCrossTxs(txs []*CrossTx) error {
-	// pick up the precommit contract txs
+	// split the Init, Finished and OutOnceCompleted txs
+	var storeTxs, outTxs []*CrossTx
+
 	t.pending.mu.Lock()
 	for _, tx := range txs {
-		if tx.Contract.GetStatus() != contractlib.Finished {
+		switch {
+		case tx.Contract.IsFinished():
+			storeTxs = append(storeTxs, tx)
+		case tx.Contract.IsOutOnceCompleted():
+			outTxs = append(outTxs, tx)
+		default:
+			storeTxs = append(storeTxs, tx)
 			t.pending.prq.Push(tx, -tx.TimeStamp.Seconds)
 		}
 	}
 	t.pending.mu.Unlock()
 
+	for _, tx := range outTxs {
+		t.wg.Add(1)
+		go func() {
+			defer t.wg.Done()
+
+			t.processOutChainCtxResp(tx.CrossID, tx.TxID)
+		}()
+	}
+
 	// store to db
-	if err := t.DB.Save(txs); err != nil {
+	if err := t.DB.Save(storeTxs); err != nil {
 		return err
 	}
 
@@ -140,15 +168,14 @@ func (t *TxManager) ProcessCrossTxs() {
 					continue
 				}
 
-				//sign
-				signed, err := t.signCtx(ctx)
+				signed, err := t.signTx(ctx)
 				if err != nil {
 					utils.Logger.Error("[courier.TxManager] signed ctx", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
 					t.pending.prq.Push(tx, -tx.TimeStamp.Seconds)
 					continue
 				}
 
-				if err := t.oClient.Send(signed); err != nil {
+				if err := t.oClient.Send(signed.(*core.CrossTransaction)); err != nil {
 					utils.Logger.Error("[courier.TxManager] send tx to OutChain", "crossID", tx.CrossID, "status", tx.GetStatus(), "err", err)
 					t.pending.prq.Push(tx, -tx.TimeStamp.Seconds)
 					continue
@@ -175,7 +202,7 @@ func (t *TxManager) ProcessCrossTxs() {
 	}
 }
 
-func (t *TxManager) AddCrossTxReceipts(ctrs []CrossTxReceipt) error {
+func (t *TxManager) UpdateCrossTx(ctrs []CrossTxReceipt) error {
 	var updaters []func(c *CrossTx)
 	var ids []string
 
@@ -215,7 +242,7 @@ func (t *TxManager) ProcessCrossTxReceipts() {
 			}
 			t.executed.mu.Unlock()
 
-			if err := t.AddCrossTxReceipts(executed); err != nil {
+			if err := t.UpdateCrossTx(executed); err != nil {
 				if errors.Is(err, storm.ErrNotFound) {
 					utils.Logger.Info("[courier.TxManager] discard receipts", "receipts", executed)
 					break
@@ -251,8 +278,134 @@ func (t *TxManager) ProcessCrossTxReceipts() {
 	}
 }
 
-func (t *TxManager) signCtx(ctx *core.CrossTransaction) (*core.CrossTransaction, error) {
-	return core.SignCtx(ctx, core.MakeCtxSigner(big.NewInt(11)), func(hash []byte) ([]byte, error) {
-		return crypto.Sign(hash, t.privateKey.K)
-	})
+func (t *TxManager) signTx(ctx interface{}) (interface{}, error) {
+	switch ctx.(type) {
+	case *core.CrossTransaction:
+		return core.SignCtx(ctx.(*core.CrossTransaction), core.MakeCtxSigner(big.NewInt(11)), func(hash []byte) ([]byte, error) {
+			return crypto.Sign(hash, t.privateKey.K)
+		})
+	case *core.ReceptTransaction:
+		return core.SignRtx(ctx.(*core.ReceptTransaction), core.MakeRtxSigner(big.NewInt(11)), func(hash []byte) ([]byte, error) {
+			return crypto.Sign(hash, t.privateKey.K)
+		})
+	default:
+		return nil, fmt.Errorf("[courire.TxManager] signTx unsupported type transaction")
+	}
+}
+
+func (t *TxManager) receive() {
+	t.wg.Add(1)
+
+	defer func() {
+		if r := recover(); r != nil {
+			utils.Logger.Error("[courier.CrossChannel] receive ", "panic", r)
+		}
+
+		t.wg.Done()
+		utils.Logger.Info("[courier.TxManager] receive stopped")
+	}()
+
+	utils.Logger.Info("[courier.TxManager] receive started")
+
+	for {
+		select {
+		case recv := <-t.oClient.Recv():
+			utils.Logger.Debug("[courier.TxManager] receive", "receipt", recv)
+
+			switch recv.(type) {
+			case *core.ReceptTransaction:
+				t.AddCrossTxReceipt(CrossTxReceipt{
+					CrossID: recv.(*core.ReceptTransaction).ID().String()[2:], // ignore '0x' prefix
+					Receipt: recv.(*core.ReceptTransaction).Data.TxHash.String()[2:],
+				})
+			case *core.CrossTransaction:
+				if !t.outchain {
+					break
+				}
+
+				req := recv.(*core.CrossTransaction)
+
+				t.wg.Add(1)
+				go func() {
+					defer t.wg.Done()
+					req.Data.To = testFabricAccount
+					t.processOutChainCtxReq(req)
+				}()
+			default:
+				utils.Logger.Warn("[courier.TxManager] discard received unsupported type transaction")
+			}
+
+		case <-t.stopCh:
+			return
+		}
+	}
+}
+
+func (t *TxManager) AddCrossTxReceipt(ctr CrossTxReceipt) {
+	t.wg.Add(1)
+	go func() {
+		defer t.wg.Done()
+
+		t.executed.mu.Lock()
+		t.executed.prq.Push(ctr, -ctr.Sequence)
+		t.executed.mu.Unlock()
+
+		select {
+		case t.executed.process <- struct{}{}:
+		case <-t.stopCh:
+			return
+		}
+	}()
+}
+
+func (t *TxManager) processOutChainCtxReq(req *core.CrossTransaction) {
+	// 1. create new ReceptTransaction and store to db
+
+	var pendingReceipt = core.NewReceptTransaction(
+		req.Data.CTxId,
+		common.Hash{},
+		req.Data.From,
+		req.Data.To,
+		testSimpleChainAddress,
+		Fabric,
+		SimpleChain,
+		req.Data.Payload,
+	)
+
+	if err := t.DB.Set("outchain", pendingReceipt.ID().String(), pendingReceipt); err != nil {
+		utils.Logger.Warn("[courier.TxManager] store outchain request", "err", err)
+	}
+
+	utils.Logger.Debug("[courier.TxManager] processOutChainCtxReq",
+		"crossID", req.ID().String(), "from", req.Data.From, "to", req.Data.To, "charge", req.Data.Charge.String())
+
+	// 2. parse and send to fabric
+	_, err := t.fClient.InvokeChainCode("commit", []string{testChainCodePrefix, req.ID().String(), testFabricinvoke, req.Data.From, req.Data.To, req.Data.Charge.String()})
+	if err != nil {
+		utils.Logger.Error("[courier.TxManager] send processOutChainCtxReq to fabric", "err", err)
+	}
+}
+
+func (t *TxManager) processOutChainCtxResp(crossID string, receipt string) {
+	// 1. update
+	var pendingReceipt = new(core.ReceptTransaction)
+	t.DB.Get("outchain", crossID, pendingReceipt)
+	pendingReceipt.Data.TxHash = common.HexToHash(receipt)
+
+	if err := t.DB.Set("outchain", crossID, pendingReceipt); err != nil {
+		utils.Logger.Warn("[courier.TxManager] store outchain response", "err", err)
+	}
+
+	utils.Logger.Debug("[courier.TxManager] processOutChainCtxResp", "crossID", crossID, "receipt", receipt)
+
+	// 2. send to outchain
+	signCtx, err := t.signTx(pendingReceipt)
+	if err != nil {
+		utils.Logger.Warn("[courier.TxManager] sign processOutChainCtxResp", "err", err)
+	}
+
+	if err := t.oClient.Send(signCtx.(*core.ReceptTransaction)); err != nil {
+		utils.Logger.Error("[courier.TxManager] send processOutChainCtxResp to outchain", "err", err)
+	}
+
 }

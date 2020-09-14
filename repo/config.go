@@ -82,7 +82,7 @@ const (
 )
 
 type Config struct {
-	Role     uint8	`toml:"role" json:"role"`
+	Role     uint8  `toml:"role" json:"role"`
 	Title    string `toml:"title" json:"title"`
 	RepoRoot string `toml:"repo_root" json:"repo_root"`
 	Contract string `toml:"contract" json:"contract"` //跨链合约地址
@@ -115,6 +115,7 @@ type Fabric struct {
 	ConfigPath  string   `toml:"configpath" json:"configpath"`
 	Events      []string `toml:"events" json:"events"`
 	DataDir     string   `toml:"datadir" json:"datadir"`
+	Outchain    bool     `toml:"outchain" json:"outchain"`
 }
 
 func (c *Config) Bytes() ([]byte, error) {

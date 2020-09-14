@@ -20,6 +20,8 @@ const (
 	Finished
 	// Completed is the fabric commit contract transaction status flag, change by courier
 	Completed
+	// OutOnceCompleted is the fabric commit contract transaction status flag, change by chaincode, handle once outchain request
+	OutOnceCompleted
 )
 
 func (c CStatus) String() string {
@@ -34,8 +36,10 @@ func (c CStatus) String() string {
 		return "Finished"
 	case Completed:
 		return "Completed"
+	case OutOnceCompleted:
+		return "OutOnceCompleted"
 	default:
-		return "UnSupport"
+		return "UnSupported"
 	}
 }
 
@@ -51,6 +55,8 @@ func ParseCStatus(c string) (CStatus, error) {
 		return Finished, nil
 	case "Completed":
 		return Completed, nil
+	case "OutOnceCompleted":
+		return OutOnceCompleted, nil
 	}
 
 	var status CStatus
@@ -112,11 +118,12 @@ func RebuildIContract(bytes json.RawMessage) (c IContract, err error) {
 		err = json.Unmarshal(bytes, &pc)
 		c = &pc
 	case "Finished":
+	case "OutOnceCompleted":
 		var cc CommitContract
 		err = json.Unmarshal(bytes, &cc)
 		c = &cc
 	default:
-		return nil, fmt.Errorf("unsupport contract type: %s", typ)
+		return nil, fmt.Errorf("unsupported contract type: %s", typ)
 	}
 
 	return c, nil
@@ -127,6 +134,12 @@ type IContract interface {
 	GetStatus() CStatus
 	GetCoreInfo() *ContractCore
 	UpdateStatus(CStatus)
+	IsInit() bool
+	IsPending() bool
+	IsExecuted() bool
+	IsFinished() bool
+	IsCompleted() bool
+	IsOutOnceCompleted() bool
 }
 
 type ContractCore struct {
@@ -182,6 +195,30 @@ func (c *PrecommitContract) UpdateReceipt(receipt string) {
 	c.Receipt = receipt
 }
 
+func (c *PrecommitContract) IsInit() bool {
+	return c.Status == Init
+}
+
+func (c *PrecommitContract) IsPending() bool {
+	return c.Status == Pending
+}
+
+func (c *PrecommitContract) IsExecuted() bool {
+	return c.Status == Executed
+}
+
+func (c *PrecommitContract) IsFinished() bool {
+	return c.Status == Finished
+}
+
+func (c *PrecommitContract) IsCompleted() bool {
+	return c.Status == Completed
+}
+
+func (c *PrecommitContract) IsOutOnceCompleted() bool {
+	return c.Status == OutOnceCompleted
+}
+
 type CommitContract struct {
 	Status     CStatus `json:"status" storm:"index"`
 	ContractID string  `json:"contract_id"`
@@ -201,4 +238,28 @@ func (c *CommitContract) UpdateStatus(s CStatus) {
 
 func (c *CommitContract) GetCoreInfo() *ContractCore {
 	return nil
+}
+
+func (c *CommitContract) IsInit() bool {
+	return c.Status == Init
+}
+
+func (c *CommitContract) IsPending() bool {
+	return c.Status == Pending
+}
+
+func (c *CommitContract) IsExecuted() bool {
+	return c.Status == Executed
+}
+
+func (c *CommitContract) IsFinished() bool {
+	return c.Status == Finished
+}
+
+func (c *CommitContract) IsCompleted() bool {
+	return c.Status == Completed
+}
+
+func (c *CommitContract) IsOutOnceCompleted() bool {
+	return c.Status == OutOnceCompleted
 }

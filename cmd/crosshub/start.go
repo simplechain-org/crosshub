@@ -5,6 +5,7 @@ import (
 	"github.com/simplechain-org/crosshub/chainview"
 	"github.com/simplechain-org/crosshub/fabric/courier"
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
+	"github.com/simplechain-org/crosshub/fabric/courier/utils"
 	"github.com/simplechain-org/crosshub/repo"
 	"github.com/simplechain-org/crosshub/swarm"
 	"os"
@@ -92,6 +93,9 @@ func start(ctx *cli.Context) error {
 
 		// set private key
 		courierHandler.SetPrivateKey(repo.Key.PrivKey.(*ecdsa.PrivateKey))
+		// accept cross request from simplechain
+		utils.Logger.Info("[courier.Handler] enable outchain flag", "outchain", repo.Config.Fabric.Outchain)
+		courierHandler.SetOutChainFlag(repo.Config.Fabric.Outchain)
 
 		courierHandler.Start()
 		go func() {

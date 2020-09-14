@@ -25,8 +25,8 @@ type DB interface {
 	Save(txList []*CrossTx) error
 	Updates(idList []string, updaters []func(c *CrossTx)) error
 	One(fieldName string, value interface{}) *CrossTx
-	Set(key string, value uint64) error
-	Get(key string) uint64
+	Set(bucketName string, key interface{}, value interface{}) error
+	Get(bucketName string, key interface{}, to interface{})
 	Query(pageSize int, startPage int, orderBy []FieldName, reverse bool, filter ...q.Matcher) []*CrossTx
 }
 
@@ -50,17 +50,14 @@ func NewStore(root *storm.DB) (*Store, error) {
 	return s, nil
 }
 
-func (s *Store) Set(key string, value uint64) error {
-	return s.db.Set("config", key, value)
+func (s *Store) Set(bucketName string, key interface{}, value interface{}) error {
+	return s.db.Set(bucketName, key, value)
 }
 
-func (s *Store) Get(key string) uint64 {
-	var value uint64
-	if err := s.db.Get("config", key, &value); err != nil {
-		return 0
+func (s *Store) Get(bucketName string, key interface{}, to interface{}) {
+	if err := s.db.Get(bucketName, key, to); err != nil {
+		utils.Logger.Warn("[courier.Store] Get ", "bucketName", bucketName, "key", key, "err", err)
 	}
-
-	return value
 }
 
 func (s *Store) Save(txList []*CrossTx) error {
@@ -82,9 +79,9 @@ func (s *Store) Save(txList []*CrossTx) error {
 				return fmt.Errorf("db save err: %w", err)
 			}
 		} else if oldTx.IContract == nil {
-			utils.Logger.Warn("[courier.RemoteStore] parse old crossTx failed", "crossID", oldTx.CrossID)
-		} else if newTx.GetStatus() == contractlib.Finished {
-			utils.Logger.Debug("[courier.RemoteStore] receive Finished crossTx ", "crossID", newTx.CrossID, "txId", newTx.TxID)
+			utils.Logger.Warn("[courier.Store] parse old crossTx failed", "crossID", oldTx.CrossID)
+		} else if newTx.IsFinished() {
+			utils.Logger.Debug("[courier.Store] receive Finished crossTx ", "crossID", newTx.CrossID, "txId", newTx.TxID)
 			// update old status, discard new
 			oldTx.UpdateStatus(contractlib.Completed)
 			if err = withTransaction.Update(&oldTx); err != nil {
