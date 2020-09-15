@@ -98,19 +98,19 @@ func TestIncRebuildIContract(t *testing.T) {
 
 func TestParseCStatus(t *testing.T) {
 	var contracts = []Contract{
-		Contract{
+		{
 			&PrecommitContract{
 				Status:     Init,
 				ContractID: "d2a6e261c941bb065b17ec09f8d8c5f16c08546b35420cfac4d9b324efb6d675",
 			},
 		},
-		Contract{
+		{
 			&CommitContract{
 				Status:     Finished,
 				ContractID: "d2a6e261c941bb065b17ec09f8d8c5f16c08546b35420cfac4d9b324efb6d675",
 			},
 		},
-		Contract{
+		{
 			&CommitContract{
 				Status:     OutOnceCompleted,
 				ContractID: "d2a6e261c941bb065b17ec09f8d8c5f16c08546b35420cfac4d9b324efb6d675",

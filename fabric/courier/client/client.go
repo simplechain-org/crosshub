@@ -94,10 +94,10 @@ func (c *FClient) initialize() {
 func (c *FClient) initializeSDK() {
 	sdk, err := fabsdk.New(c.cfg.ConfigProvider)
 	if err != nil {
-		utils.Fatalf("[FClient] fabsdk.New err: %+v", err)
+		utils.Fatalf("[courier.FClient] fabsdk.New err: %+v", err)
 	}
 
-	utils.Logger.Info("[FClient] initialized fabric sdk")
+	utils.Logger.Info("[courier.FClient] initialized fabric sdk")
 
 	c.sdk = sdk
 }
@@ -107,10 +107,10 @@ func (c *FClient) initializeChannelClient() {
 
 	cc, err := channel.New(channelProvider)
 	if err != nil {
-		utils.Fatalf("[FClient] channel.New err: %v", err)
+		utils.Fatalf("[courier.FClient] channel.New err: %v", err)
 	}
 
-	utils.Logger.Info("[FClient] initialized channel client")
+	utils.Logger.Info("[courier.FClient] initialized channel client")
 
 	c.cc = cc
 }
@@ -119,10 +119,10 @@ func (c *FClient) initializeLedgerClient() {
 	channelProvider := c.sdk.ChannelContext(c.cfg.ChannelID(), fabsdk.WithUser(c.cfg.UserName()))
 	lc, err := ledger.New(channelProvider)
 	if err != nil {
-		utils.Fatalf("[FClient] ledger.New err: %v", err)
+		utils.Fatalf("[courier.FClient] ledger.New err: %v", err)
 	}
 
-	utils.Logger.Info("[FClient] initialized ledger client")
+	utils.Logger.Info("[courier.FClient] initialized ledger client")
 
 	c.lc = lc
 }

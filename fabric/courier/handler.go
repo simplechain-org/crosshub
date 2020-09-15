@@ -1,8 +1,6 @@
 package courier
 
 import (
-	"sync"
-
 	"github.com/simplechain-org/crosshub/fabric/courier/client"
 
 	"github.com/asdine/storm/v3"
@@ -13,8 +11,6 @@ type Handler struct {
 	blkSync *BlockSync
 	rootDB  *storm.DB
 	txm     *TxManager
-
-	taskWg sync.WaitGroup
 
 	stopCh chan struct{}
 }
@@ -52,28 +48,10 @@ func (h *Handler) Stop() {
 	h.blkSync.Stop()
 
 	close(h.stopCh)
-	//h.taskWg.Wait()
 
 	h.txm.Stop()
 
 	h.rootDB.Close()
-}
-
-func (h *Handler) RecvMsg(ctr CrossTxReceipt) {
-	//h.taskWg.Add(1)
-	go func() {
-		//defer h.taskWg.Done()
-
-		h.txm.executed.mu.Lock()
-		h.txm.executed.prq.Push(ctr, -ctr.Sequence)
-		h.txm.executed.mu.Unlock()
-
-		select {
-		case h.txm.executed.process <- struct{}{}:
-		case <-h.stopCh:
-			return
-		}
-	}()
 }
 
 func (h *Handler) SetPrivateKey(key *ecdsa.PrivateKey) {

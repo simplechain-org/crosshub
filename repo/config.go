@@ -116,6 +116,7 @@ type Fabric struct {
 	Events      []string `toml:"events" json:"events"`
 	DataDir     string   `toml:"datadir" json:"datadir"`
 	Outchain    bool     `toml:"outchain" json:"outchain"`
+	LogLevel    string   `toml:"loglevel" json:"loglevel"`
 }
 
 func (c *Config) Bytes() ([]byte, error) {
