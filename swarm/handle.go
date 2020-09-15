@@ -19,6 +19,8 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 				log.Info("Decode msg","err",err)
 				return err
 			}
+
+
 			nodeCert, err := cert.ParseCert(certs.NodeCert)
 			if err != nil {
 				log.Info("ParseCert","err",err)
@@ -34,6 +36,13 @@ func (swarm *Swarm) handleMessage(s network.Stream, data *hubnet.Msg) {
 				log.Info("ParseCert","err",err)
 				return fmt.Errorf("verify certs: %w", err)
 			}
+
+			for _, addr := range swarm.peers {
+				if addr.ID.String() ==  certs.Id {
+					swarm.connectedPeers.Store(addr.ID,addr)
+				}
+			}
+			//swarm.connectedPeers.Store()
 			//TODO 网络拓展 swarm.connectedPeers.RemoteStore(certs.Id,addr)
 			return swarm.handleFetchCertMessage(s)
 		case CertMsg:
@@ -72,7 +81,6 @@ func (swarm *Swarm) handleFetchCertMessage(s network.Stream) error {
 		AgencyCert: swarm.repo.Certs.AgencyCertData,
 		NodeCert:   swarm.repo.Certs.NodeCertData,
 	}
-
 	msg, err := hubnet.NewMsg(CertMsg,certs)
 	if err != nil {
 		return err

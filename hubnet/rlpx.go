@@ -58,13 +58,11 @@ func (rw *p2pRW) ReadMsg() (msg Msg, err error) {
 	// read the header
 	headbuf := make([]byte, 32)
 	if _, err := io.ReadFull(rw.conn, headbuf); err != nil {
-		log.Info("ReadMsg1","err",err)
 		return msg, err
 	}
 	fsize := readInt24(headbuf)
 	codebuf := make([]byte, 1)
 	if _, err := io.ReadFull(rw.conn, codebuf); err != nil {
-		log.Info("ReadMsg2","err",err)
 		return msg, err
 	}
 	err = rlp.DecodeBytes(codebuf,&msg.Code)
@@ -75,7 +73,6 @@ func (rw *p2pRW) ReadMsg() (msg Msg, err error) {
 	msg.Size = fsize - 1
 	framebuf := make([]byte, msg.Size)
 	if _, err := io.ReadFull(rw.conn, framebuf); err != nil {
-		log.Info("ReadMsg2","err",err)
 		return msg, err
 	}
 	msg.Bytes = framebuf

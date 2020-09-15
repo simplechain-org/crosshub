@@ -21,7 +21,7 @@ const (
 	testChainCodePrefix    = "outchain"
 	testFabricinvoke       = "invoke"
 	testFabricAccount      = "a"
-	testSimpleChainAddress = "0x992ec45ae0d2d2fcf97f4417cfd3f80505862fbc"
+	testSimpleChainAddress = "0xdE1D7Acfd66eECC4512413d517f0484920491cAB"
 )
 
 type CrossTx struct {

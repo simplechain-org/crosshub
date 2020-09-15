@@ -101,7 +101,7 @@ func New(repo *repo.Repo,eventCh chan<- interface{}, messageCh <-chan interface{
 		SimpleClient:  ethclient.NewClient(client),
 		Address:       repo.Config.Contract,
 		currentHeight: localDb.Get("currentHeight"),
-		//currentHeight: 15000,
+		//currentHeight: 35800,
 		eventCh:       eventCh,
 		messageCh:     messageCh,
 		PrivateKey:    repo.Key.PrivKey.(*ecdsa.PrivateKey),
@@ -115,10 +115,10 @@ func New(repo *repo.Repo,eventCh chan<- interface{}, messageCh <-chan interface{
 
 func (this *Viewer)Start() error {
 	this.GetAnchors()
-	this.RemoteStore.Deletes([]common.Hash{
-		common.HexToHash("0xa5b27e78847ffd1415c89654d8dbab8148472d452dd5ae311be54bf181b270a4"),
-		common.HexToHash("0x57b38851fb67956ce3a5420ed050a1e4eb7e70b31bd103202976b23546326f74"),
-	})
+	//this.RemoteStore.Deletes([]common.Hash{
+	//	common.HexToHash("0xa5b27e78847ffd1415c89654d8dbab8148472d452dd5ae311be54bf181b270a4"),
+	//	common.HexToHash("0x57b38851fb67956ce3a5420ed050a1e4eb7e70b31bd103202976b23546326f74"),
+	//})
 	go this.loop()
 	return nil
 }

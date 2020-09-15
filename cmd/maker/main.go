@@ -20,7 +20,7 @@ var (
 
 	contract = flag.String("contract", "0x71B4B8fd103dcDA2b971b1677ec70a96Ad24FB38", "合约地址")
 
-	value = flag.Uint64("value", 3, "转入合约的数量")
+	value = flag.Uint64("value", 100, "转入合约的数量")
 
 	destValue = flag.Uint64("destValue", 1, "兑换数量")
 

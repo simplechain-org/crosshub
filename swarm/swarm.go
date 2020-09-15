@@ -72,33 +72,36 @@ func (swarm *Swarm) Start() error {
 
 	log.Info("Start","peers",len(swarm.peers))
 	for id, addr := range swarm.peers {
-		go func(id uint64, addr *peer.AddrInfo) {
-			log.Info("try connet","id",id,"addr",addr.String())
-			if err := retry.Retry(func(attempt uint) error {
-				if err := swarm.p2p.Connect(addr); err != nil {
-					//log.Info("Connect","err",err)
-					return err
-				}
-
-				if err := swarm.verifyCert(id); err != nil {
-					if attempt != 0 && attempt%5 == 0 {
-						log.Error("Verify cert","err",err)
+		if _,ok := swarm.connectedPeers.Load(addr.ID);!ok {
+			go func(id uint64, addr *peer.AddrInfo) {
+				log.Info("try connet","id",id,"addr",addr.String())
+				if err := retry.Retry(func(attempt uint) error {
+					if err := swarm.p2p.Connect(addr); err != nil {
+						//log.Info("Connect","err",err)
+						return err
 					}
-					log.Info("verifyCert","err",err)
-					return err
+
+					if err := swarm.verifyCert(id); err != nil {
+						if attempt != 0 && attempt%5 == 0 {
+							log.Error("Verify cert","err",err)
+						}
+						log.Info("verifyCert","err",err)
+						return err
+					}
+
+					log.Info("Connect successfully","id",id)
+
+					swarm.connectedPeers.Store(addr.ID, addr)
+
+					return nil
+				},
+					strategy.Wait(1*time.Second),
+				); err != nil {
+					log.Error("retry.Retry","err",err)
 				}
+			}(id, addr)
+		}
 
-				log.Info("Connect successfully","id",id)
-
-				swarm.connectedPeers.Store(id, addr)
-
-				return nil
-			},
-				strategy.Wait(1*time.Second),
-			); err != nil {
-				log.Error("retry.Retry","err",err)
-			}
-		}(id, addr)
 	}
 	log.Info("Start successfully")
 
