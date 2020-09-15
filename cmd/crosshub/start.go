@@ -58,7 +58,6 @@ func start(ctx *cli.Context) error {
 		return err
 	}
 
-
 	switch repo.Config.Role {
 	case 1:
 		var wg sync.WaitGroup
@@ -83,9 +82,12 @@ func start(ctx *cli.Context) error {
 		}()
 		wg.Wait()
 	default:
+		// set utils.log level
+		utils.Verbosity(repo.Config.Fabric.LogLevel)
+
 		courierHandler, err := courier.New(client.InitConfig(repo.Config.Fabric), &courier.CrossChannel{
-			eventCh,
-			messageCh,
+			SendCh: eventCh,
+			RecvCh: messageCh,
 		})
 
 		if err != nil {
@@ -101,7 +103,7 @@ func start(ctx *cli.Context) error {
 
 		courierHandler.Start()
 		defer courierHandler.Stop()
-		<- stop
+		<-stop
 		os.Exit(0)
 	}
 

@@ -32,3 +32,4 @@ rpcport = "8545"
   events = "precommit,commit"
   datadir = "./nodes/node2/courier_data"
   outchain = true
+  loglevel = "debug"
