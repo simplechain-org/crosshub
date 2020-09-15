@@ -3,7 +3,6 @@ package courier
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/meshplus/bitxhub-kit/hexutil"
 	"strings"
 	"sync"
 	"time"
@@ -167,7 +166,6 @@ func (s *BlockSync) processPreTxs() {
 					break
 				}
 
-utils.Logger.Debug("========================", "c", c, "txpayload", hexutil.Encode(tx.Payload) )
 				crossTx := &CrossTx{
 					Contract:    c,
 					TxID:        tx.TxID,
